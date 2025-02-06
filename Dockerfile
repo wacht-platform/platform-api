@@ -1,4 +1,4 @@
-FROM rust:1.84.0-alpine as build
+FROM rust:1.84.0 as build
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY . /app
 # Build the application
 RUN cargo build --release
 
-FROM alpine:latest
+FROM rust:1.84.0
 
 WORKDIR /app
 
