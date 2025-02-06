@@ -1,0 +1,29 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SocialConnectionProvider {
+    Google,
+    Github,
+    Microsoft,
+    Facebook,
+    LinkedIn,
+    Discord,
+    Apple,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SocialConnection {
+    #[serde(with = "crate::utils::serde::i64_as_string")]
+    pub id: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub user_id: i64,
+    pub user_email_address_id: i64,
+    pub provider: SocialConnectionProvider,
+    pub email_address: String,
+    pub access_token: String,
+    pub refresh_token: String,
+}
