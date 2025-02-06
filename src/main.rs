@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
 
     let app = application::new(pool.clone());
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     axum::serve(listener, app).await?;
 
     Ok(())
