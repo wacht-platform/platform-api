@@ -26,16 +26,12 @@ pub struct AuthenticationFactorSettings {
     pub second_factor_backup_code_enabled: Option<bool>,
 }
 
-// Social Login Settings
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SocialLoginSettings {
-    pub google: Option<SocialProviderConfig>,
-    pub github: Option<SocialProviderConfig>,
-    pub facebook: Option<SocialProviderConfig>,
-    pub apple: Option<SocialProviderConfig>,
-    pub microsoft: Option<SocialProviderConfig>,
-    pub linkedin: Option<SocialProviderConfig>,
-    pub discord: Option<SocialProviderConfig>,
+pub struct SessionSettings {
+    pub max_session_age: Option<i64>,
+    pub inactivity_timeout: Option<i64>,
+    pub allow_multi_account_session: Option<bool>,
+    pub default_jwt_template: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -47,7 +43,7 @@ pub struct SocialProviderConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RestrictionSettings {
-    pub blocked_countries: Vec<String>,
+    pub blocked_country_codes: Vec<String>,
     pub banned_keywords: Vec<String>,
     pub email_allowlist: Vec<String>,
     pub email_blocklist: Vec<String>,
@@ -67,6 +63,7 @@ pub struct SocialConnectionSettings {
     pub id: Option<String>,
     pub client_id: String,
     pub client_secret: String,
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -77,7 +74,7 @@ pub struct DeploymentAuthSettingsUpdates {
     pub password: Option<PasswordSettings>,
     pub name: Option<NameSettings>,
     pub authentication_factors: Option<AuthenticationFactorSettings>,
-    pub social_login: Option<SocialLoginSettings>,
     pub restrictions: Option<RestrictionSettings>,
     pub social_connections: Option<Vec<SocialConnectionSettings>>,
+    pub session: Option<SessionSettings>,
 }
