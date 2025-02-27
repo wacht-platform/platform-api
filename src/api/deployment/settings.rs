@@ -1,6 +1,7 @@
 use crate::{
-    application::{ApiError, ApiErrorResponse, ApiResult, AppState},
+    application::{ApiError, ApiErrorResponse, ApiResult, AppState, DeploymentAuthSettingsUpdates},
     core::{
+        commands::{Command, UpdateDeploymentAuthSettingsCommand},
         models::DeploymentWithSettings,
         queries::{deployment::GetDeploymentWithSettingsQuery, Query},
     },
@@ -8,6 +9,7 @@ use crate::{
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    Json,
 };
 
 pub async fn get_deployment_with_settings(
@@ -27,11 +29,26 @@ pub async fn get_deployment_with_settings(
         .map(Into::into)
 }
 
-pub async fn update_deployment_settings(
+pub async fn update_deployment_authetication_settings(
     State(app_state): State<AppState>,
     Path(deployment_id): Path<i64>,
-    body: DeploymentWithSettings,
+    Json(settings): Json<DeploymentAuthSettingsUpdates>,
 ) -> ApiResult<()> {
-    // TODO: Implement update logic
+    let command = UpdateDeploymentAuthSettingsCommand {
+        deployment_id,
+        settings,
+    };
+
+    command
+        .execute(&app_state)
+        .await
+        .map_err(|e| ApiErrorResponse {
+            staus_code: StatusCode::INTERNAL_SERVER_ERROR,
+            errors: vec![ApiError {
+                message: e.to_string(),
+                code: 500,
+            }],
+        })?;
+
     Ok(().into())
 }

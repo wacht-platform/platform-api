@@ -1,17 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum SocialConnectionProvider {
-    Google,
-    Github,
-    Microsoft,
-    Facebook,
-    LinkedIn,
-    Discord,
-    Apple,
-}
+use super::SocialConnectionProvider;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SocialConnection {

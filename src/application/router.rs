@@ -1,4 +1,7 @@
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, patch},
+    Router,
+};
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -25,6 +28,10 @@ fn deployment_routes() -> Router<AppState> {
         .route(
             "/settings",
             get(api::deployment::settings::get_deployment_with_settings),
+        )
+        .route(
+            "/settings/auth-settings",
+            patch(api::deployment::settings::update_deployment_authetication_settings),
         )
         .route(
             "/social-connections",

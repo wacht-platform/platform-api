@@ -75,7 +75,17 @@ impl FromStr for SecondFactorPolicy {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IndividualAuthSettings {
     pub enabled: bool,
-    pub required: bool,
+    pub required: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PasswordSettings {
+    pub enabled: bool,
+    pub min_length: u8,
+    pub require_lowercase: bool,
+    pub require_uppercase: bool,
+    pub require_number: bool,
+    pub require_special: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -86,6 +96,7 @@ pub struct VerificationPolicy {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AuthFactorsEnabled {
+    pub sso: bool,
     pub email_password: bool,
     pub username_password: bool,
     pub email_otp: bool,
@@ -94,6 +105,45 @@ pub struct AuthFactorsEnabled {
     pub web3_wallet: bool,
     pub backup_code: bool,
     pub authenticator: bool,
+    pub passkey: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EmailSettings {
+    pub enabled: bool,
+    pub required: bool,
+    pub verify_signup: bool,
+    pub otp_verification_allowed: bool,
+    pub magic_link_verification_allowed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PhoneSettings {
+    pub enabled: bool,
+    pub required: bool,
+    pub verify_signup: bool,
+    pub sms_verification_allowed: bool,
+    pub whatsapp_verification_allowed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UsernameSettings {
+    pub enabled: bool,
+    pub required: bool,
+    pub min_length: u8,
+    pub max_length: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EmailLinkSettings {
+    pub enabled: bool,
+    pub require_same_device: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PasskeySettings {
+    pub enabled: bool,
+    pub allow_autofill: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -103,15 +153,16 @@ pub struct DeploymentAuthSettings {
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
-    pub email_address: IndividualAuthSettings,
-    pub phone_number: IndividualAuthSettings,
-    pub username: IndividualAuthSettings,
+    pub email_address: EmailSettings,
+    pub phone_number: PhoneSettings,
+    pub username: UsernameSettings,
     pub first_name: IndividualAuthSettings,
     pub last_name: IndividualAuthSettings,
-    pub password: IndividualAuthSettings,
+    pub password: PasswordSettings,
     pub backup_code: IndividualAuthSettings,
     pub web3_wallet: IndividualAuthSettings,
-    pub password_policy: IndividualAuthSettings,
+    pub magic_link: EmailLinkSettings,
+    pub passkey: PasskeySettings,
     pub auth_factors_enabled: AuthFactorsEnabled,
     pub verification_policy: VerificationPolicy,
     pub second_factor_policy: Option<SecondFactorPolicy>,

@@ -55,6 +55,8 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.second_factor_policy::text as second_factor_policy, 
                 deployment_auth_settings.first_factor::text as first_factor, 
                 deployment_auth_settings.second_factor::text as second_factor,
+                deployment_auth_settings.passkey::jsonb as passkey,
+                deployment_auth_settings.magic_link::jsonb as magic_link,
                 array_to_json(deployment_auth_settings.alternate_first_factors)::jsonb as alternate_first_factors,
                 array_to_json(deployment_auth_settings.alternate_second_factors)::jsonb as alternate_second_factors,
                 
@@ -142,10 +144,6 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                         .unwrap(),
                     web3_wallet: serde_json::from_value(row.web3_wallet.unwrap_or_default())
                         .unwrap(),
-                    password_policy: serde_json::from_value(
-                        row.password_policy.unwrap_or_default(),
-                    )
-                    .unwrap(),
                     auth_factors_enabled: serde_json::from_value(
                         row.auth_factors_enabled.unwrap_or_default(),
                     )
@@ -154,6 +152,8 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                         row.verification_policy.unwrap_or_default(),
                     )
                     .unwrap(),
+                    passkey: serde_json::from_value(row.passkey.unwrap_or_default()).unwrap(),
+                    magic_link: serde_json::from_value(row.magic_link.unwrap_or_default()).unwrap(),
                     second_factor_policy: row
                         .second_factor_policy
                         .map(|s| FromStr::from_str(&s).unwrap()),
