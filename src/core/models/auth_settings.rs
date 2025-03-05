@@ -81,11 +81,11 @@ pub struct IndividualAuthSettings {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PasswordSettings {
     pub enabled: bool,
-    pub min_length: u8,
-    pub require_lowercase: bool,
-    pub require_uppercase: bool,
-    pub require_number: bool,
-    pub require_special: bool,
+    pub min_length: Option<u8>,
+    pub require_lowercase: Option<bool>,
+    pub require_uppercase: Option<bool>,
+    pub require_number: Option<bool>,
+    pub require_special: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -112,26 +112,26 @@ pub struct AuthFactorsEnabled {
 pub struct EmailSettings {
     pub enabled: bool,
     pub required: bool,
-    pub verify_signup: bool,
-    pub otp_verification_allowed: bool,
-    pub magic_link_verification_allowed: bool,
+    pub verify_signup: Option<bool>,
+    pub otp_verification_allowed: Option<bool>,
+    pub magic_link_verification_allowed: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PhoneSettings {
     pub enabled: bool,
     pub required: bool,
-    pub verify_signup: bool,
-    pub sms_verification_allowed: bool,
-    pub whatsapp_verification_allowed: bool,
+    pub verify_signup: Option<bool>,
+    pub sms_verification_allowed: Option<bool>,
+    pub whatsapp_verification_allowed: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UsernameSettings {
     pub enabled: bool,
     pub required: bool,
-    pub min_length: u8,
-    pub max_length: u8,
+    pub min_length: Option<u8>,
+    pub max_length: Option<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -161,8 +161,8 @@ pub struct DeploymentAuthSettings {
     pub password: PasswordSettings,
     pub backup_code: IndividualAuthSettings,
     pub web3_wallet: IndividualAuthSettings,
-    pub magic_link: EmailLinkSettings,
-    pub passkey: PasskeySettings,
+    pub magic_link: Option<EmailLinkSettings>,
+    pub passkey: Option<PasskeySettings>,
     pub auth_factors_enabled: AuthFactorsEnabled,
     pub verification_policy: VerificationPolicy,
     pub second_factor_policy: Option<SecondFactorPolicy>,

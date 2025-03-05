@@ -1,0 +1,706 @@
+openapi: 3.0.3
+info:
+  title: Wacht Dashboard API
+  description: API for the Wacht Dashboard to manage deployments, users, and settings
+  version: 1.0.0
+servers:
+  - url: 'https://fresh-marnia-intellinesia-labs-6851c34a.koyeb.app'
+    description: Local development server
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-02-27T05:50:13Z"
+  
+  /projects:
+    get:
+      summary: Get all projects with deployments
+      description: Returns a list of projects with their associated deployments
+      operationId: getProjects
+      tags:
+        - Projects
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjectWithDeployments'
+  
+  /deployment/{deployment_id}/users:
+    get:
+      summary: Get users for a deployment
+      description: Returns a paginated list of users for a specific deployment
+      operationId: getDeploymentUsers
+      tags:
+        - Deployment Users
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: Number of items to return per page (default 10)
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          description: Number of items to skip
+          schema:
+            type: integer
+            default: 0
+        - name: sort_key
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+        - name: sort_order
+          in: query
+          description: Sort order (asc or desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+        - name: disabled
+          in: query
+          description: Filter by disabled status
+          schema:
+            type: boolean
+        - name: invited
+          in: query
+          description: Filter by invited status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserWithIdentifiers'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  
+  /deployment/{deployment_id}/organizations:
+    get:
+      summary: Get organizations for a deployment
+      description: Returns a paginated list of organizations for a specific deployment
+      operationId: getDeploymentOrganizations
+      tags:
+        - Deployment Organizations
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: Number of items to return per page (default 10)
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          description: Number of items to skip
+          schema:
+            type: integer
+            default: 0
+        - name: sort_key
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+        - name: sort_order
+          in: query
+          description: Sort order (asc or desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrganization'
+  
+  /deployment/{deployment_id}/settings:
+    get:
+      summary: Get deployment settings
+      description: Returns the settings for a specific deployment
+      operationId: getDeploymentSettings
+      tags:
+        - Deployment Settings
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentWithSettings'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  
+  /deployment/{deployment_id}/settings/auth-settings:
+    patch:
+      summary: Update deployment authentication settings
+      description: Updates the authentication settings for a specific deployment
+      operationId: updateDeploymentAuthSettings
+      tags:
+        - Deployment Settings
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentAuthSettingsUpdates'
+      responses:
+        '200':
+          description: Settings updated successfully
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  
+  /deployment/{deployment_id}/social-connections:
+    get:
+      summary: Get deployment social connections
+      description: Returns the social connections for a specific deployment
+      operationId: getDeploymentSocialConnections
+      tags:
+        - Deployment Social Connections
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDeploymentSocialConnection'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+components:
+  schemas:
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        has_more:
+          type: boolean
+          description: Whether there are more items available
+    
+    PaginatedProjectWithDeployments:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectWithDeployments'
+    
+    PaginatedUserWithIdentifiers:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserWithIdentifiers'
+    
+    PaginatedOrganization:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Organization'
+    
+    PaginatedDeploymentSocialConnection:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeploymentSocialConnection'
+    
+    ApiError:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: integer
+          format: int32
+    
+    ApiErrorResponse:
+      type: object
+      properties:
+        staus_code:
+          type: integer
+          format: int32
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiError'
+    
+    DeploymentMode:
+      type: string
+      enum:
+        - production
+        - staging
+    
+    ProjectWithDeployments:
+      type: object
+      properties:
+        id:
+          type: string
+          format: int64
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        deployments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Deployment'
+    
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        maintenance_mode:
+          type: boolean
+        host:
+          type: string
+        publishable_key:
+          type: string
+        secret:
+          type: string
+        mode:
+          $ref: '#/components/schemas/DeploymentMode'
+    
+    DeploymentWithSettings:
+      type: object
+      properties:
+        id:
+          type: string
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        maintenance_mode:
+          type: boolean
+        host:
+          type: string
+        publishable_key:
+          type: string
+        secret:
+          type: string
+        mode:
+          $ref: '#/components/schemas/DeploymentMode'
+        auth_settings:
+          $ref: '#/components/schemas/DeploymentAuthSettings'
+          nullable: true
+        display_settings:
+          $ref: '#/components/schemas/DeploymentDisplaySettings'
+          nullable: true
+        org_settings:
+          $ref: '#/components/schemas/DeploymentOrgSettings'
+          nullable: true
+    
+    DeploymentAuthSettings:
+      type: object
+      description: Authentication settings for a deployment
+    
+    DeploymentDisplaySettings:
+      type: object
+      description: Display settings for a deployment
+    
+    DeploymentOrgSettings:
+      type: object
+      description: Organization settings for a deployment
+    
+    UserWithIdentifiers:
+      type: object
+      properties:
+        id:
+          type: string
+          format: int64
+        # Add other user properties as needed
+    
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: int64
+        name:
+          type: string
+        # Add other organization properties as needed
+    
+    DeploymentSocialConnection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: int64
+        provider:
+          type: string
+        # Add other social connection properties as needed
+    
+    NameSettings:
+      type: object
+      properties:
+        first_name_enabled:
+          type: boolean
+        first_name_required:
+          type: boolean
+        last_name_enabled:
+          type: boolean
+        last_name_required:
+          type: boolean
+    
+    AuthenticationFactorSettings:
+      type: object
+      properties:
+        sso_enabled:
+          type: boolean
+          nullable: true
+        web3_wallet_enabled:
+          type: boolean
+          nullable: true
+        magic_link:
+          $ref: '#/components/schemas/EmailLinkSettings'
+          nullable: true
+        email_otp_enabled:
+          type: boolean
+          nullable: true
+        phone_otp_enabled:
+          type: boolean
+          nullable: true
+        passkey:
+          $ref: '#/components/schemas/PasskeySettings'
+          nullable: true
+        second_factor_phone_otp_enabled:
+          type: boolean
+          nullable: true
+        second_factor_authenticator_enabled:
+          type: boolean
+          nullable: true
+        second_factor_backup_code_enabled:
+          type: boolean
+          nullable: true
+    
+    SocialLoginSettings:
+      type: object
+      properties:
+        google:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+        github:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+        facebook:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+        apple:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+        microsoft:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+        linkedin:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+        discord:
+          $ref: '#/components/schemas/SocialProviderConfig'
+          nullable: true
+    
+    SocialProviderConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        client_id:
+          type: string
+        client_secret:
+          type: string
+    
+    RestrictionSettings:
+      type: object
+      properties:
+        blocked_country_codes:
+          type: array
+          items:
+            type: string
+        banned_keywords:
+          type: array
+          items:
+            type: string
+        email_allowlist:
+          type: array
+          items:
+            type: string
+        email_blocklist:
+          type: array
+          items:
+            type: string
+        block_voip_numbers:
+          type: boolean
+        restrict_signup:
+          type: boolean
+        block_temporary_emails:
+          type: boolean
+        block_special_characters_in_email:
+          type: boolean
+    
+    DeploymentAuthSettingsUpdates:
+      type: object
+      properties:
+        email:
+          $ref: '#/components/schemas/EmailSettings'
+          nullable: true
+        phone:
+          $ref: '#/components/schemas/PhoneSettings'
+          nullable: true
+        username:
+          $ref: '#/components/schemas/UsernameSettings'
+          nullable: true
+        password:
+          $ref: '#/components/schemas/PasswordSettings'
+          nullable: true
+        name:
+          $ref: '#/components/schemas/NameSettings'
+          nullable: true
+        authentication_factors:
+          $ref: '#/components/schemas/AuthenticationFactorSettings'
+          nullable: true
+        restrictions:
+          $ref: '#/components/schemas/RestrictionSettings'
+          nullable: true
+        social_connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialConnectionSettings'
+          nullable: true
+        session:
+          $ref: '#/components/schemas/SessionSettings'
+          nullable: true
+    
+    EmailSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+        verify_signup:
+          type: boolean
+        otp_verification_allowed:
+          type: boolean
+        magic_link_verification_allowed:
+          type: boolean
+    
+    PhoneSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+        verify_signup:
+          type: boolean
+        sms_verification_allowed:
+          type: boolean
+        whatsapp_verification_allowed:
+          type: boolean
+    
+    UsernameSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+        min_length:
+          type: integer
+          format: int8
+          minimum: 0
+          maximum: 255
+        max_length:
+          type: integer
+          format: int8
+          minimum: 0
+          maximum: 255
+    
+    PasswordSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        min_length:
+          type: integer
+          format: int8
+          minimum: 0
+          maximum: 255
+        require_lowercase:
+          type: boolean
+        require_uppercase:
+          type: boolean
+        require_number:
+          type: boolean
+        require_special:
+          type: boolean
+    
+    EmailLinkSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        require_same_device:
+          type: boolean
+    
+    PasskeySettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        allow_autofill:
+          type: boolean
+    
+    SessionSettings:
+      type: object
+      properties:
+        max_session_age:
+          type: integer
+          format: int64
+          nullable: true
+        inactivity_timeout:
+          type: integer
+          format: int64
+          nullable: true
+        allow_multi_account_session:
+          type: boolean
+          nullable: true
+        default_jwt_template:
+          type: string
+          nullable: true
+    
+    SocialConnectionSettings:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/SocialConnectionProvider'
+          nullable: true
+        id:
+          type: string
+          nullable: true
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        enabled:
+          type: boolean
+          nullable: true
+    
+    SocialConnectionProvider:
+      type: string
+      enum:
+        - x_oauth
+        - github_oauth
+        - gitlab_oauth
+        - google_oauth
+        - facebook_oauth
+        - microsoft_oauth
+        - linkedin_oauth
+        - discord_oauth
+        - apple_oauth
