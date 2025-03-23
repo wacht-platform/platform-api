@@ -24,3 +24,11 @@ pub async fn get_projects(
     }
     .into())
 }
+
+pub async fn create_project(
+    State(app_state): State<AppState>,
+    Json(payload): Json<Project>,
+) -> ApiResult<Project> {
+    let project = Project::create(&app_state, payload).await?;
+    Ok(project)
+}
