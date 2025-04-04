@@ -1,5 +1,5 @@
 use crate::{
-    application::{deployment_settings::DeploymentAuthSettingsUpdates, AppError, AppState},
+    application::{AppError, AppState, deployment_settings::DeploymentAuthSettingsUpdates},
     core::models::IndividualAuthSettings,
 };
 

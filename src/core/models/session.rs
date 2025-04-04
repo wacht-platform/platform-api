@@ -21,4 +21,4 @@ pub struct Session {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub active_signin_id: Option<i64>,
-} 
+}

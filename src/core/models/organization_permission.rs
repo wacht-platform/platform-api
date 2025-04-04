@@ -10,4 +10,4 @@ pub struct OrganizationPermission {
     pub deleted_at: Option<DateTime<Utc>>,
     pub org_role_id: i64,
     pub permission: String,
-} 
+}

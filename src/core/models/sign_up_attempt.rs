@@ -33,4 +33,4 @@ pub struct SignupAttempt {
     pub missing_fields: Vec<String>,
     pub current_step: SignupAttemptStep,
     pub remaining_steps: Vec<SignupAttemptStep>,
-} 
+}

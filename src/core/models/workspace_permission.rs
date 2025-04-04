@@ -10,4 +10,4 @@ pub struct WorkspacePermission {
     pub deleted_at: Option<DateTime<Utc>>,
     pub workspace_role_id: i64,
     pub permission: String,
-} 
+}

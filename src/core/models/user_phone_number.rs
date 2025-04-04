@@ -12,4 +12,4 @@ pub struct UserPhoneNumber {
     pub phone_number: String,
     pub verified: bool,
     pub verified_at: DateTime<Utc>,
-} 
+}

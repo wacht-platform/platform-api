@@ -113,12 +113,12 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 return Err(AppError::Database(sqlx::Error::Protocol(format!(
                     "Invalid deployment mode: {}",
                     mode
-                ))))
+                ))));
             }
             None => {
                 return Err(AppError::Database(sqlx::Error::Protocol(
                     "Mode is required".into(),
-                )))
+                )));
             }
         };
 

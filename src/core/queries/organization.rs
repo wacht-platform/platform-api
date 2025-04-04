@@ -3,7 +3,7 @@ use crate::{
     application::{AppError, AppState},
     core::models::Organization,
 };
-use sqlx::{query, Row};
+use sqlx::{Row, query};
 
 pub struct DeploymentOrganizationListQuery {
     offset: i64,

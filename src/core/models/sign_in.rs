@@ -12,4 +12,4 @@ pub struct SignIn {
     pub user_id: i64,
     pub expired: bool,
     pub expired_at: Option<String>,
-} 
+}

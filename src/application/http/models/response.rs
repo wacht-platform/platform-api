@@ -1,4 +1,4 @@
-use axum::{http::StatusCode, response::IntoResponse, Json};
+use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,6 +67,30 @@ impl From<(StatusCode, ApiError)> for ApiErrorResponse {
         ApiErrorResponse {
             staus_code: value.0,
             errors: vec![value.1],
+        }
+    }
+}
+
+impl From<(StatusCode, String)> for ApiErrorResponse {
+    fn from(value: (StatusCode, String)) -> Self {
+        ApiErrorResponse {
+            staus_code: value.0,
+            errors: vec![ApiError {
+                message: value.1,
+                code: u16::from(value.0),
+            }],
+        }
+    }
+}
+
+impl From<(StatusCode, &str)> for ApiErrorResponse {
+    fn from(value: (StatusCode, &str)) -> Self {
+        ApiErrorResponse {
+            staus_code: value.0,
+            errors: vec![ApiError {
+                message: value.1.to_string(),
+                code: u16::from(value.0),
+            }],
         }
     }
 }

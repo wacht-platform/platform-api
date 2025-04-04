@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use sqlx::{query, Row};
+use sqlx::{Row, query};
 
 use crate::{
     application::{AppError, AppState},

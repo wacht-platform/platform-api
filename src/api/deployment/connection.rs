@@ -2,7 +2,7 @@ use crate::{
     application::{ApiError, ApiErrorResponse, ApiResult, AppState, PaginatedResponse},
     core::{
         models::DeploymentSocialConnection,
-        queries::{deployment::GetDeploymentSocialConnectionsQuery, Query},
+        queries::{Query, deployment::GetDeploymentSocialConnectionsQuery},
     },
 };
 use axum::{

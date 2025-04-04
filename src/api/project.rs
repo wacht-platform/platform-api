@@ -1,7 +1,10 @@
-use axum::extract::State;
+use axum::{
+    extract::{Multipart, State},
+    http::StatusCode,
+};
 
 use crate::{
-    application::AppState,
+    application::{ApiError, ApiErrorResponse, AppState},
     core::{
         models::ProjectWithDeployments,
         queries::{GetProjectsWithDeploymentQuery, Query},
@@ -26,9 +29,31 @@ pub async fn get_projects(
 }
 
 pub async fn create_project(
-    State(app_state): State<AppState>,
-    Json(payload): Json<Project>,
-) -> ApiResult<Project> {
-    let project = Project::create(&app_state, payload).await?;
-    Ok(project)
+    // State(app_state): State<AppState>,
+    mut multipart: Multipart,
+) -> ApiResult<()> {
+    // let project = Project::create(&app_state, payload).await?;
+    let mut name = String::new();
+    let mut logo_buffer: Vec<u8> = Vec::new();
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?
+    {
+        let field_name = field.name().unwrap_or_default().to_string();
+        let content_type = field.content_type().unwrap_or_default().to_string();
+        let value = field.bytes().await.unwrap().to_vec();
+
+        if field_name == "name" {
+            name = field_name;
+        } else if field_name == "logo" && content_type == "image/png" {
+            logo_buffer = value;
+        }
+    }
+
+    println!("name: {}", name);
+    println!("logo_buffer: {:?}", logo_buffer);
+
+    Ok(().into())
 }

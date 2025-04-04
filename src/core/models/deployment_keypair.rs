@@ -11,4 +11,4 @@ pub struct DeploymentKeyPair {
     pub deployment_id: i64,
     pub public_key: String,
     pub private_key: String,
-} 
+}

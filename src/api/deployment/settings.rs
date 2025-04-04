@@ -3,13 +3,13 @@ use crate::{
     core::{
         commands::{Command, UpdateDeploymentAuthSettingsCommand},
         models::DeploymentWithSettings,
-        queries::{deployment::GetDeploymentWithSettingsQuery, Query},
+        queries::{Query, deployment::GetDeploymentWithSettingsQuery},
     },
 };
 use axum::{
+    Json,
     extract::{Path, State},
     http::StatusCode,
-    Json,
 };
 
 pub async fn get_deployment_with_settings(
