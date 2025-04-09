@@ -8,7 +8,7 @@ COPY . /app
 # Build the application
 RUN cargo build --release
 
-FROM rust:1.84.0
+FROM rust:1.85.1
 
 WORKDIR /app
 

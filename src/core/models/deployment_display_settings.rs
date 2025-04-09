@@ -86,10 +86,3 @@ impl Default for DeploymentDisplaySettings {
         }
     }
 }
-
-impl DeploymentDisplaySettings {
-    pub fn with_app_name(mut self, app_name: &str) -> Self {
-        self.app_name = app_name.to_string();
-        self
-    }
-}
