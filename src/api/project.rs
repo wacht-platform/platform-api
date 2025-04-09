@@ -1,11 +1,12 @@
 use axum::{
-    extract::{Multipart, State},
+    extract::{Multipart, Path, State},
     http::StatusCode,
 };
 
 use crate::{
-    application::{ApiError, ApiErrorResponse, AppState},
+    application::AppState,
     core::{
+        commands::{Command, CreateProjectCommand, DeleteProjectCommand},
         models::ProjectWithDeployments,
         queries::{GetProjectsWithDeploymentQuery, Query},
     },
@@ -29,12 +30,12 @@ pub async fn get_projects(
 }
 
 pub async fn create_project(
-    // State(app_state): State<AppState>,
+    State(app_state): State<AppState>,
     mut multipart: Multipart,
-) -> ApiResult<()> {
-    // let project = Project::create(&app_state, payload).await?;
+) -> ApiResult<ProjectWithDeployments> {
     let mut name = String::new();
     let mut logo_buffer: Vec<u8> = Vec::new();
+    let mut methods: Vec<String> = Vec::new();
 
     while let Some(field) = multipart
         .next_field()
@@ -46,14 +47,31 @@ pub async fn create_project(
         let value = field.bytes().await.unwrap().to_vec();
 
         if field_name == "name" {
-            name = field_name;
+            name = String::from_utf8_lossy(&value).into();
+        } else if field_name == "methods" {
+            methods.push(String::from_utf8_lossy(&value).into());
         } else if field_name == "logo" && content_type == "image/png" {
             logo_buffer = value;
         }
     }
 
-    println!("name: {}", name);
-    println!("logo_buffer: {:?}", logo_buffer);
+    if name.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Name is required").into());
+    }
+
+    let project = CreateProjectCommand::new(name, logo_buffer, methods)
+        .execute(&app_state)
+        .await?;
+
+    Ok(project.into())
+}
+
+pub async fn delete_project(
+    State(app_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> ApiResult<()> {
+    let command = DeleteProjectCommand::new(id, 0);
+    command.execute(&app_state).await?;
 
     Ok(().into())
 }

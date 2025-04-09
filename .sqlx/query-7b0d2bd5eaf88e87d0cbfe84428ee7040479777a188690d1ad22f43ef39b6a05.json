@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO deployments (\n                id,\n                project_id, \n                mode, \n                host, \n                publishable_key, \n                secret, \n                maintenance_mode\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            RETURNING id, created_at, updated_at, deleted_at, \n                     maintenance_mode, host, publishable_key, secret, \n                     project_id, mode\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "maintenance_mode",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "host",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "publishable_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "secret",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "project_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "mode",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "7b0d2bd5eaf88e87d0cbfe84428ee7040479777a188690d1ad22f43ef39b6a05"
+}

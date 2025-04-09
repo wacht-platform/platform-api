@@ -103,7 +103,7 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             "#,
             self.deployment_id,
         )
-        .fetch_one(&app_state.pool)
+        .fetch_one(&app_state.db_pool)
         .await?;
 
         let mode = match row.mode.as_ref().map(|s| s.to_lowercase()).as_deref() {
@@ -258,7 +258,7 @@ impl Query<Vec<DeploymentSocialConnection>> for GetDeploymentSocialConnectionsQu
             "#,
             self.deployment_id,
         )
-        .fetch_all(&app_state.pool)
+        .fetch_all(&app_state.db_pool)
         .await?;
 
         Ok(row

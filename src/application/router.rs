@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
 };
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -18,6 +18,7 @@ fn project_routes() -> Router<AppState> {
     Router::new()
         .route("/projects", get(api::project::get_projects))
         .route("/project", post(api::project::create_project))
+        .route("/project/{id}", delete(api::project::delete_project))
 }
 
 fn deployment_routes() -> Router<AppState> {

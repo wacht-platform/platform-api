@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO deployment_org_settings (\n                id,\n                deployment_id,\n                enabled,\n                ip_allowlist_enabled,\n                max_allowed_members,\n                allow_deletion,\n                custom_role_enabled,\n                default_role,\n                created_at,\n                updated_at\n            )\n            VALUES (\n                $1,\n                $2,\n                $3,\n                $4,\n                $5,\n                $6,\n                $7,\n                $8,\n                $9,\n                $10\n            )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Bool",
+        "Bool",
+        "Int8",
+        "Bool",
+        "Bool",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3cba12003b61068f1c4375a2589d83082cdc0dfa423b8c2ae4e580192c3ca541"
+}

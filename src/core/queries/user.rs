@@ -96,7 +96,7 @@ impl Query<Vec<UserWithIdentifiers>> for DeploymentUserListQuery {
         query.push(" LIMIT ");
         query.push_bind(self.limit);
 
-        let rows = query.build().fetch_all(&app_state.pool).await?;
+        let rows = query.build().fetch_all(&app_state.db_pool).await?;
 
         let users = rows
             .into_iter()

@@ -31,6 +31,7 @@ pub struct Deployment {
     pub host: String,
     pub publishable_key: String,
     pub secret: String,
+    #[serde(with = "crate::utils::serde::i64_as_string")]
     pub project_id: i64,
     pub mode: DeploymentMode,
 }

@@ -1,14 +1,11 @@
 use crate::{
-    application::{ApiError, ApiResult, AppState, PaginatedResponse, UserListQueryParams},
+    application::{ApiResult, AppState, PaginatedResponse, UserListQueryParams},
     core::{
         models::UserWithIdentifiers,
         queries::{DeploymentUserListQuery, Query},
     },
 };
-use axum::{
-    extract::{Path, Query as QueryParams, State},
-    http::StatusCode,
-};
+use axum::extract::{Path, Query as QueryParams, State};
 
 pub async fn get_user_list(
     State(app_state): State<AppState>,
@@ -25,16 +22,7 @@ pub async fn get_user_list(
         .disabled(query_params.disabled.unwrap_or_default())
         .invited(query_params.invited.unwrap_or_default())
         .execute(&app_state)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ApiError {
-                    message: "Internal server error".to_string(),
-                    code: 500,
-                },
-            )
-        })?;
+        .await?;
 
     let has_more = users.len() > limit as usize;
     let users = if has_more {
@@ -43,9 +31,5 @@ pub async fn get_user_list(
         users
     };
 
-    Ok(PaginatedResponse {
-        data: users,
-        has_more,
-    }
-    .into())
+    Ok(PaginatedResponse::from(users).into())
 }

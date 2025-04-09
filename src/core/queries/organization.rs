@@ -88,7 +88,7 @@ impl Query<Vec<Organization>> for DeploymentOrganizationListQuery {
             .bind(self.deployment_id)
             .bind(self.offset)
             .bind(self.limit)
-            .fetch_all(&app_state.pool)
+            .fetch_all(&app_state.db_pool)
             .await?;
 
         Ok(rows

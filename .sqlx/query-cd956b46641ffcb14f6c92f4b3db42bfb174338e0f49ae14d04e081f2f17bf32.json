@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO deployment_display_settings (\n                id,\n                deployment_id,\n                app_name,\n                primary_color,\n                button_config,\n                input_config,\n                tos_page_url,\n                sign_in_page_url,\n                sign_up_page_url,\n                after_sign_out_one_page_url,\n                after_sign_out_all_page_url,\n                favicon_image_url,\n                logo_image_url,\n                privacy_policy_url,\n                signup_terms_statement,\n                signup_terms_statement_shown,\n                created_at,\n                updated_at\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Json",
+        "Json",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cd956b46641ffcb14f6c92f4b3db42bfb174338e0f49ae14d04e081f2f17bf32"
+}

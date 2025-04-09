@@ -56,11 +56,10 @@ impl GetProjectsWithDeploymentQuery {
 }
 impl Query<Vec<ProjectWithDeployments>> for GetProjectsWithDeploymentQuery {
     async fn execute(&self, app_state: &AppState) -> Result<Vec<ProjectWithDeployments>, AppError> {
-        println!("oid: {}", self.oid);
         let rows = query(
             r#"
             SELECT
-                p.id, p.created_at, p.updated_at, p.deleted_at, p.name,
+                p.id, p.created_at, p.updated_at, p.deleted_at, p.name, p.image_url,
                 d.id as deployment_id, d.created_at as deployment_created_at,
                 d.updated_at as deployment_updated_at, d.deleted_at as deployment_deleted_at,
                 d.maintenance_mode as deployment_maintenance_mode, d.host as deployment_host,
@@ -72,7 +71,7 @@ impl Query<Vec<ProjectWithDeployments>> for GetProjectsWithDeploymentQuery {
             ORDER BY p.id DESC
             "#,
         )
-        .fetch_all(&app_state.pool)
+        .fetch_all(&app_state.db_pool)
         .await?;
 
         let mut projects_map: BTreeMap<i64, ProjectWithDeployments> = BTreeMap::new();
@@ -96,6 +95,7 @@ impl Query<Vec<ProjectWithDeployments>> for GetProjectsWithDeploymentQuery {
                     project_id,
                     ProjectWithDeployments {
                         id: project_id,
+                        image_url: row.get("image_url"),
                         created_at: row.get("created_at"),
                         updated_at: row.get("updated_at"),
                         deleted_at: row.get("deleted_at"),

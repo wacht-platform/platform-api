@@ -16,3 +16,21 @@ pub struct DeploymentOrgSettings {
     pub custom_role_enabled: bool,
     pub default_role: String,
 }
+
+impl Default for DeploymentOrgSettings {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            created_at: None,
+            updated_at: None,
+            deleted_at: None,
+            deployment_id: 0,
+            enabled: true,
+            ip_allowlist_enabled: false,
+            max_allowed_members: 100,
+            allow_deletion: true,
+            custom_role_enabled: true,
+            default_role: "member".to_string(),
+        }
+    }
+}

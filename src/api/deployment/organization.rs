@@ -20,8 +20,7 @@ pub async fn get_organization_list(
         .sort_key(query_params.sort_key)
         .sort_order(query_params.sort_order)
         .execute(&app_state)
-        .await
-        .unwrap();
+        .await?;
 
     let has_more = organizations.len() > limit as usize;
     let organizations = if has_more {
@@ -30,9 +29,5 @@ pub async fn get_organization_list(
         organizations
     };
 
-    Ok(PaginatedResponse {
-        data: organizations,
-        has_more,
-    }
-    .into())
+    Ok(PaginatedResponse::from(organizations).into())
 }

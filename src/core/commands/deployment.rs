@@ -10,8 +10,10 @@ pub struct UpdateDeploymentAuthSettingsCommand {
     pub settings: DeploymentAuthSettingsUpdates,
 }
 
-impl Command<()> for UpdateDeploymentAuthSettingsCommand {
-    async fn execute(&self, app_state: &AppState) -> Result<(), AppError> {
+impl Command for UpdateDeploymentAuthSettingsCommand {
+    type Output = ();
+
+    async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let mut query_builder =
             sqlx::QueryBuilder::new("UPDATE deployment_auth_settings SET updated_at = NOW()");
 
@@ -176,7 +178,7 @@ impl Command<()> for UpdateDeploymentAuthSettingsCommand {
             .push(" WHERE deployment_id = ")
             .push_bind(self.deployment_id);
 
-        query_builder.build().execute(&app_state.pool).await?;
+        query_builder.build().execute(&app_state.db_pool).await?;
 
         Ok(())
     }
