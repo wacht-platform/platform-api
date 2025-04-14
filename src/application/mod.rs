@@ -1,5 +1,5 @@
 mod error;
-mod http;
+pub mod http;
 mod router;
 mod state;
 

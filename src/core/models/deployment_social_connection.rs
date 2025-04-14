@@ -36,6 +36,22 @@ impl FromStr for SocialConnectionProvider {
     }
 }
 
+impl From<SocialConnectionProvider> for String {
+    fn from(provider: SocialConnectionProvider) -> Self {
+        match provider {
+            SocialConnectionProvider::XOauth => "x_oauth".to_string(),
+            SocialConnectionProvider::GithubOauth => "github_oauth".to_string(),
+            SocialConnectionProvider::GitlabOauth => "gitlab_oauth".to_string(),
+            SocialConnectionProvider::GoogleOauth => "google_oauth".to_string(),
+            SocialConnectionProvider::FacebookOauth => "facebook_oauth".to_string(),
+            SocialConnectionProvider::MicrosoftOauth => "microsoft_oauth".to_string(),
+            SocialConnectionProvider::LinkedinOauth => "linkedin_oauth".to_string(),
+            SocialConnectionProvider::DiscordOauth => "discord_oauth".to_string(),
+            SocialConnectionProvider::AppleOauth => "apple_oauth".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct OauthCredentials {
     pub client_id: String,
@@ -54,6 +70,5 @@ pub struct DeploymentSocialConnection {
     pub deployment_id: Option<i64>,
     pub provider: Option<SocialConnectionProvider>,
     pub enabled: Option<bool>,
-    pub user_defined_scopes: Option<Vec<String>>,
     pub credentials: Option<OauthCredentials>,
 }

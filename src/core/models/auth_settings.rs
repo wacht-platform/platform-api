@@ -86,6 +86,7 @@ impl FromStr for SecondFactorPolicy {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        println!("from_str: {}", s);
         match s {
             "none" => Ok(SecondFactorPolicy::None),
             "optional" => Ok(SecondFactorPolicy::Optional),
@@ -279,7 +280,7 @@ impl Default for PasskeySettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            allow_autofill: true,
+            allow_autofill: false,
         }
     }
 }
@@ -297,8 +298,6 @@ pub struct DeploymentAuthSettings {
     pub first_name: IndividualAuthSettings,
     pub last_name: IndividualAuthSettings,
     pub password: PasswordSettings,
-    pub backup_code: IndividualAuthSettings,
-    pub web3_wallet: IndividualAuthSettings,
     pub magic_link: Option<EmailLinkSettings>,
     pub passkey: Option<PasskeySettings>,
     pub auth_factors_enabled: AuthFactorsEnabled,
@@ -324,14 +323,6 @@ impl Default for DeploymentAuthSettings {
             first_name: IndividualAuthSettings::default(),
             last_name: IndividualAuthSettings::default(),
             password: PasswordSettings::default(),
-            backup_code: IndividualAuthSettings {
-                enabled: false,
-                required: None,
-            },
-            web3_wallet: IndividualAuthSettings {
-                enabled: false,
-                required: None,
-            },
             magic_link: Some(EmailLinkSettings::default()),
             passkey: Some(PasskeySettings::default()),
             auth_factors_enabled: AuthFactorsEnabled::default(),

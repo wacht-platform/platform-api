@@ -2,14 +2,17 @@ use crate::{
     application::{AppError, AppState},
     core::models::{
         AuthFactorsEnabled, Deployment, DeploymentAuthSettings, DeploymentDisplaySettings,
-        DeploymentMode, DeploymentOrgSettings, EmailSettings, FirstFactor, IndividualAuthSettings,
-        PasswordSettings, PhoneSettings, ProjectWithDeployments, SecondFactor, SecondFactorPolicy,
+        DeploymentMode, DeploymentOrgSettings, DeploymentRestrictions, EmailSettings, FirstFactor,
+        IndividualAuthSettings, OauthCredentials, PasswordSettings, PhoneSettings,
+        ProjectWithDeployments, SecondFactor, SecondFactorPolicy, SocialConnectionProvider,
         UsernameSettings, VerificationPolicy,
     },
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
-use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use super::{Command, UploadToCdnCommand};
 
@@ -97,14 +100,6 @@ impl CreateProjectCommand {
         let password_settings = PasswordSettings::default();
         let first_name_settings = IndividualAuthSettings::default();
         let last_name_settings = IndividualAuthSettings::default();
-        let backup_code_settings = IndividualAuthSettings {
-            enabled: false,
-            required: None,
-        };
-        let web3_wallet_settings = IndividualAuthSettings {
-            enabled: false,
-            required: None,
-        };
 
         let auth_factors_enabled = AuthFactorsEnabled::default()
             .with_email(email_enabled)
@@ -121,15 +116,13 @@ impl CreateProjectCommand {
             email_address: email_settings,
             phone_number: phone_settings,
             username: username_settings,
-            first_factor: first_factor,
+            first_factor,
             alternate_first_factors: Some(alternate_first_factors),
             first_name: first_name_settings,
             last_name: last_name_settings,
             password: password_settings,
-            backup_code: backup_code_settings,
-            web3_wallet: web3_wallet_settings,
-            auth_factors_enabled: auth_factors_enabled,
-            verification_policy: verification_policy,
+            auth_factors_enabled,
+            verification_policy,
             second_factor_policy: Some(SecondFactorPolicy::None),
             second_factor: Some(SecondFactor::None),
             ..DeploymentAuthSettings::default()
@@ -156,6 +149,23 @@ impl CreateProjectCommand {
         DeploymentOrgSettings {
             deployment_id,
             ..DeploymentOrgSettings::default()
+        }
+    }
+
+    fn create_restrictions(&self, deployment_id: i64) -> DeploymentRestrictions {
+        DeploymentRestrictions {
+            deployment_id,
+            allowlist_enabled: false,
+            blocklist_enabled: false,
+            block_subaddresses: false,
+            block_disposable_emails: false,
+            block_voip_numbers: false,
+            country_restrictions: Default::default(),
+            banned_keywords: Default::default(),
+            allowlisted_resources: Default::default(),
+            blocklisted_resources: Default::default(),
+            sign_up_mode: Default::default(),
+            ..Default::default()
         }
     }
 }
@@ -246,8 +256,6 @@ impl Command for CreateProjectCommand {
                 first_name,
                 last_name,
                 password,
-                backup_code,
-                web3_wallet,
                 auth_factors_enabled,
                 verification_policy,
                 second_factor_policy,
@@ -276,9 +284,7 @@ impl Command for CreateProjectCommand {
                 $16,
                 $17,
                 $18,
-                $19,
-                $20,
-                $21
+                $19
             )
             "#,
             app_state.sf.next_id()? as i64,
@@ -303,10 +309,6 @@ impl Command for CreateProjectCommand {
             serde_json::to_value(&auth_settings.last_name)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.password)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
-            serde_json::to_value(&auth_settings.backup_code)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
-            serde_json::to_value(&auth_settings.web3_wallet)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.auth_factors_enabled)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
@@ -380,6 +382,47 @@ impl Command for CreateProjectCommand {
         .execute(&mut *tx)
         .await?;
 
+        let restrictions = self.create_restrictions(deployment_row.id);
+
+        sqlx::query!(
+            r#"
+            INSERT INTO deployment_restrictions (
+                id,
+                deployment_id,
+                allowlist_enabled,
+                blocklist_enabled,
+                block_subaddresses,
+                block_disposable_emails,
+                block_voip_numbers,
+                country_restrictions,
+                banned_keywords,
+                allowlisted_resources,
+                blocklisted_resources,
+                sign_up_mode,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            "#,
+            app_state.sf.next_id()? as i64,
+            restrictions.deployment_id,
+            restrictions.allowlist_enabled,
+            restrictions.blocklist_enabled,
+            restrictions.block_subaddresses,
+            restrictions.block_disposable_emails,
+            restrictions.block_voip_numbers,
+            serde_json::to_value(&restrictions.country_restrictions)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            &restrictions.banned_keywords,
+            &restrictions.allowlisted_resources,
+            &restrictions.blocklisted_resources,
+            restrictions.sign_up_mode.to_string(),
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .execute(&mut *tx)
+        .await?;
+
         let org_settings = self.create_org_settings(deployment_row.id);
 
         sqlx::query!(
@@ -433,10 +476,13 @@ impl Command for CreateProjectCommand {
             "linkedin",
         ];
 
-        let empty_credentials = json!({});
+        let empty_credentials = serde_json::to_value(OauthCredentials::default())
+            .map_err(|e| AppError::Serialization(e.to_string()))?;
 
         for provider in social_providers.iter() {
-            if self.auth_methods.contains(&provider.to_string()) {
+            if self.auth_methods.contains(&provider.to_string())
+                && SocialConnectionProvider::from_str(*provider).is_ok()
+            {
                 sqlx::query!(
                     r#"
                     INSERT INTO deployment_social_connections (

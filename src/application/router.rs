@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{delete, get, patch, post},
+    routing::{delete, get, patch, post, put},
 };
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -25,12 +25,12 @@ fn deployment_routes() -> Router<AppState> {
     let routes = Router::new()
         .route("/users", get(api::deployment::user::get_user_list))
         .route(
-            "/organizations",
-            get(api::deployment::organization::get_organization_list),
+            "/",
+            get(api::deployment::settings::get_deployment_with_settings),
         )
         .route(
-            "/settings",
-            get(api::deployment::settings::get_deployment_with_settings),
+            "/organizations",
+            get(api::deployment::organization::get_organization_list),
         )
         .route(
             "/settings/auth-settings",
@@ -39,9 +39,13 @@ fn deployment_routes() -> Router<AppState> {
         .route(
             "/social-connections",
             get(api::deployment::connection::get_deployment_social_connections),
+        )
+        .route(
+            "/social-connections",
+            put(api::deployment::connection::upsert_deployment_social_connection),
         );
 
-    Router::new().nest("/deployment/{deployment_id}", routes)
+    Router::new().nest("/deployments/{deployment_id}", routes)
 }
 
 fn configure_cors() -> CorsLayer {

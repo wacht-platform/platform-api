@@ -6,7 +6,8 @@ use crate::{
     application::{AppError, AppState},
     core::models::{
         DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentMode, DeploymentOrgSettings,
-        DeploymentSocialConnection, DeploymentWithSettings,
+        DeploymentRestrictions, DeploymentRestrictionsSignUpMode, DeploymentSocialConnection,
+        DeploymentWithSettings,
     },
 };
 
@@ -47,8 +48,6 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.first_name::jsonb as first_name,
                 deployment_auth_settings.last_name::jsonb as last_name, 
                 deployment_auth_settings.password::jsonb as password,
-                deployment_auth_settings.backup_code::jsonb as backup_code, 
-                deployment_auth_settings.web3_wallet::jsonb as web3_wallet,
                 deployment_auth_settings.password_policy::jsonb as password_policy,
                 deployment_auth_settings.auth_factors_enabled::jsonb as auth_factors_enabled,
                 deployment_auth_settings.verification_policy::jsonb as verification_policy,
@@ -88,7 +87,23 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_org_settings.max_allowed_members,
                 deployment_org_settings.allow_deletion, 
                 deployment_org_settings.custom_role_enabled, 
-                deployment_org_settings.default_role
+                deployment_org_settings.default_role,
+
+                deployment_restrictions.id as "restrictions_id?",
+                deployment_restrictions.created_at as "restrictions_created_at?",
+                deployment_restrictions.updated_at as "restrictions_updated_at?",
+                deployment_restrictions.deleted_at as "restrictions_deleted_at?",
+                deployment_restrictions.allowlist_enabled,
+                deployment_restrictions.blocklist_enabled,
+                deployment_restrictions.block_subaddresses,
+                deployment_restrictions.block_disposable_emails,
+                deployment_restrictions.block_voip_numbers,
+                deployment_restrictions.country_restrictions,
+                deployment_restrictions.banned_keywords,
+                deployment_restrictions.allowlisted_resources,
+                deployment_restrictions.blocklisted_resources,
+                deployment_restrictions.sign_up_mode
+                
             FROM deployments
             LEFT JOIN deployment_auth_settings 
                 ON deployments.id = deployment_auth_settings.deployment_id 
@@ -99,6 +114,9 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             LEFT JOIN deployment_org_settings 
                 ON deployments.id = deployment_org_settings.deployment_id 
                 AND deployment_org_settings.deleted_at IS NULL
+            LEFT JOIN deployment_restrictions
+                ON deployments.id = deployment_restrictions.deployment_id
+                AND deployment_restrictions.deleted_at IS NULL
             WHERE deployments.id = $1 AND deployments.deleted_at IS NULL
             "#,
             self.deployment_id,
@@ -146,10 +164,6 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                     first_name: serde_json::from_value(row.first_name.unwrap_or_default()).unwrap(),
                     last_name: serde_json::from_value(row.last_name.unwrap_or_default()).unwrap(),
                     password: serde_json::from_value(row.password.unwrap_or_default()).unwrap(),
-                    backup_code: serde_json::from_value(row.backup_code.unwrap_or_default())
-                        .unwrap(),
-                    web3_wallet: serde_json::from_value(row.web3_wallet.unwrap_or_default())
-                        .unwrap(),
                     auth_factors_enabled: serde_json::from_value(
                         row.auth_factors_enabled.unwrap_or_default(),
                     )
@@ -222,6 +236,33 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             } else {
                 None
             },
+            restrictions: if row.restrictions_id.is_some() {
+                Some(DeploymentRestrictions {
+                    id: row.restrictions_id.unwrap(),
+                    created_at: row.restrictions_created_at,
+                    updated_at: row.restrictions_updated_at,
+                    deleted_at: row.restrictions_deleted_at,
+                    deployment_id: self.deployment_id,
+                    allowlist_enabled: row.allowlist_enabled.unwrap_or_default(),
+                    blocklist_enabled: row.blocklist_enabled.unwrap_or_default(),
+                    block_subaddresses: row.block_subaddresses.unwrap_or_default(),
+                    block_disposable_emails: row.block_disposable_emails.unwrap_or_default(),
+                    block_voip_numbers: row.block_voip_numbers.unwrap_or_default(),
+                    country_restrictions: serde_json::from_value(
+                        row.country_restrictions.unwrap_or_default(),
+                    )
+                    .unwrap(),
+                    banned_keywords: row.banned_keywords.unwrap_or_default(),
+                    allowlisted_resources: row.allowlisted_resources.unwrap_or_default(),
+                    blocklisted_resources: row.blocklisted_resources.unwrap_or_default(),
+                    sign_up_mode: DeploymentRestrictionsSignUpMode::from_str(
+                        row.sign_up_mode.as_ref().unwrap_or(&"public".to_string()),
+                    )
+                    .unwrap(),
+                })
+            } else {
+                None
+            },
         })
     }
 }
@@ -271,8 +312,9 @@ impl Query<Vec<DeploymentSocialConnection>> for GetDeploymentSocialConnectionsQu
                 deployment_id: row.deployment_id,
                 provider: row.provider.map(|s| FromStr::from_str(&s).unwrap()),
                 enabled: row.enabled,
-                user_defined_scopes: row.user_defined_scopes,
-                credentials: row.credentials.map(|v| serde_json::from_value(v).unwrap()),
+                credentials: row
+                    .credentials
+                    .map(|v| serde_json::from_value(v).unwrap_or_default()),
             })
             .collect())
     }

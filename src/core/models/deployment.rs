@@ -1,7 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentOrgSettings};
+use super::{
+    DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentOrgSettings,
+    DeploymentRestrictions,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -51,4 +54,5 @@ pub struct DeploymentWithSettings {
     pub auth_settings: Option<DeploymentAuthSettings>,
     pub display_settings: Option<DeploymentDisplaySettings>,
     pub org_settings: Option<DeploymentOrgSettings>,
+    pub restrictions: Option<DeploymentRestrictions>,
 }
