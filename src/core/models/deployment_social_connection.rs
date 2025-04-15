@@ -64,11 +64,11 @@ pub struct OauthCredentials {
 pub struct DeploymentSocialConnection {
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub id: i64,
-    pub created_at: Option<DateTime<Utc>>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub deployment_id: Option<i64>,
     pub provider: Option<SocialConnectionProvider>,
-    pub enabled: Option<bool>,
+    pub enabled: bool,
     pub credentials: Option<OauthCredentials>,
 }

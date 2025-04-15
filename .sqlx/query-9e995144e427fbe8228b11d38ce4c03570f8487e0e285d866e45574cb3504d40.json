@@ -1,0 +1,460 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                deployments.id, \n                deployments.created_at, \n                deployments.updated_at, \n                deployments.deleted_at,\n                deployments.maintenance_mode, \n                deployments.host, \n                deployments.publishable_key, \n                deployments.secret,\n                deployments.mode,\n                \n                deployment_auth_settings.id as \"auth_settings_id?\", \n                deployment_auth_settings.created_at as \"auth_settings_created_at?\",\n                deployment_auth_settings.updated_at as \"auth_settings_updated_at?\", \n                deployment_auth_settings.deleted_at as \"auth_settings_deleted_at?\",\n                deployment_auth_settings.email_address::jsonb as \"email_address?\", \n                deployment_auth_settings.phone_number::jsonb as \"phone_number?\",\n                deployment_auth_settings.username::jsonb as username, \n                deployment_auth_settings.first_name::jsonb as first_name,\n                deployment_auth_settings.last_name::jsonb as last_name, \n                deployment_auth_settings.password::jsonb as password,\n                deployment_auth_settings.auth_factors_enabled::jsonb as auth_factors_enabled,\n                deployment_auth_settings.verification_policy::jsonb as verification_policy,\n                deployment_auth_settings.second_factor_policy::text as second_factor_policy, \n                deployment_auth_settings.first_factor::text as first_factor, \n                deployment_auth_settings.second_factor::text as second_factor,\n                deployment_auth_settings.passkey::jsonb as passkey,\n                deployment_auth_settings.magic_link::jsonb as magic_link,\n                deployment_auth_settings.multi_session_support::jsonb as multi_session_support,\n                deployment_auth_settings.session_token_lifetime,\n                deployment_auth_settings.session_validity_period,\n                deployment_auth_settings.session_inactive_timeout,\n                array_to_json(deployment_auth_settings.alternate_first_factors)::jsonb as alternate_first_factors,\n                array_to_json(deployment_auth_settings.alternate_second_factors)::jsonb as alternate_second_factors,\n                \n                deployment_display_settings.id as \"display_settings_id?\", \n                deployment_display_settings.created_at as \"display_settings_created_at?\",\n                deployment_display_settings.updated_at as \"display_settings_updated_at?\", \n                deployment_display_settings.deleted_at as \"display_settings_deleted_at?\",\n                deployment_display_settings.app_name, \n                deployment_display_settings.primary_color, \n                deployment_display_settings.tos_page_url, \n                deployment_display_settings.sign_in_page_url,\n                deployment_display_settings.sign_up_page_url,\n                deployment_display_settings.after_sign_out_one_page_url,\n                deployment_display_settings.after_sign_out_all_page_url,\n                deployment_display_settings.favicon_image_url,\n                deployment_display_settings.logo_image_url,\n                deployment_display_settings.privacy_policy_url,\n                deployment_display_settings.signup_terms_statement, \n                deployment_display_settings.signup_terms_statement_shown,\n                deployment_display_settings.button_config::jsonb as button_config, \n                deployment_display_settings.input_config::jsonb as input_config,\n                \n                deployment_org_settings.id as \"org_settings_id?\", \n                deployment_org_settings.created_at as \"org_settings_created_at?\",\n                deployment_org_settings.updated_at as \"org_settings_updated_at?\", \n                deployment_org_settings.deleted_at as \"org_settings_deleted_at?\",\n                deployment_org_settings.enabled, \n                deployment_org_settings.ip_allowlist_enabled, \n                deployment_org_settings.max_allowed_members,\n                deployment_org_settings.allow_deletion, \n                deployment_org_settings.custom_role_enabled, \n                deployment_org_settings.default_role,\n\n                deployment_restrictions.id as \"restrictions_id?\",\n                deployment_restrictions.created_at as \"restrictions_created_at?\",\n                deployment_restrictions.updated_at as \"restrictions_updated_at?\",\n                deployment_restrictions.deleted_at as \"restrictions_deleted_at?\",\n                deployment_restrictions.allowlist_enabled,\n                deployment_restrictions.blocklist_enabled,\n                deployment_restrictions.block_subaddresses,\n                deployment_restrictions.block_disposable_emails,\n                deployment_restrictions.block_voip_numbers,\n                deployment_restrictions.country_restrictions,\n                deployment_restrictions.banned_keywords,\n                deployment_restrictions.allowlisted_resources,\n                deployment_restrictions.blocklisted_resources,\n                deployment_restrictions.sign_up_mode\n                \n            FROM deployments\n            LEFT JOIN deployment_auth_settings \n                ON deployments.id = deployment_auth_settings.deployment_id \n                AND deployment_auth_settings.deleted_at IS NULL\n            LEFT JOIN deployment_display_settings \n                ON deployments.id = deployment_display_settings.deployment_id \n                AND deployment_display_settings.deleted_at IS NULL\n            LEFT JOIN deployment_org_settings \n                ON deployments.id = deployment_org_settings.deployment_id \n                AND deployment_org_settings.deleted_at IS NULL\n            LEFT JOIN deployment_restrictions\n                ON deployments.id = deployment_restrictions.deployment_id\n                AND deployment_restrictions.deleted_at IS NULL\n            WHERE deployments.id = $1 AND deployments.deleted_at IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "maintenance_mode",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "host",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "publishable_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "secret",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "mode",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "auth_settings_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "auth_settings_created_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "auth_settings_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "auth_settings_deleted_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "email_address?",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 14,
+        "name": "phone_number?",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 15,
+        "name": "username",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 16,
+        "name": "first_name",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 17,
+        "name": "last_name",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 18,
+        "name": "password",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 19,
+        "name": "auth_factors_enabled",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 20,
+        "name": "verification_policy",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 21,
+        "name": "second_factor_policy",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 22,
+        "name": "first_factor",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 23,
+        "name": "second_factor",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 24,
+        "name": "passkey",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 25,
+        "name": "magic_link",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 26,
+        "name": "multi_session_support",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 27,
+        "name": "session_token_lifetime",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 28,
+        "name": "session_validity_period",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 29,
+        "name": "session_inactive_timeout",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 30,
+        "name": "alternate_first_factors",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 31,
+        "name": "alternate_second_factors",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 32,
+        "name": "display_settings_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 33,
+        "name": "display_settings_created_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 34,
+        "name": "display_settings_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 35,
+        "name": "display_settings_deleted_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 36,
+        "name": "app_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 37,
+        "name": "primary_color",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 38,
+        "name": "tos_page_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 39,
+        "name": "sign_in_page_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 40,
+        "name": "sign_up_page_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 41,
+        "name": "after_sign_out_one_page_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 42,
+        "name": "after_sign_out_all_page_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 43,
+        "name": "favicon_image_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 44,
+        "name": "logo_image_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 45,
+        "name": "privacy_policy_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 46,
+        "name": "signup_terms_statement",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 47,
+        "name": "signup_terms_statement_shown",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 48,
+        "name": "button_config",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 49,
+        "name": "input_config",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 50,
+        "name": "org_settings_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 51,
+        "name": "org_settings_created_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 52,
+        "name": "org_settings_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 53,
+        "name": "org_settings_deleted_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 54,
+        "name": "enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 55,
+        "name": "ip_allowlist_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 56,
+        "name": "max_allowed_members",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 57,
+        "name": "allow_deletion",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 58,
+        "name": "custom_role_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 59,
+        "name": "default_role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 60,
+        "name": "restrictions_id?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 61,
+        "name": "restrictions_created_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 62,
+        "name": "restrictions_updated_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 63,
+        "name": "restrictions_deleted_at?",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 64,
+        "name": "allowlist_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 65,
+        "name": "blocklist_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 66,
+        "name": "block_subaddresses",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 67,
+        "name": "block_disposable_emails",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 68,
+        "name": "block_voip_numbers",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 69,
+        "name": "country_restrictions",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 70,
+        "name": "banned_keywords",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 71,
+        "name": "allowlisted_resources",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 72,
+        "name": "blocklisted_resources",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 73,
+        "name": "sign_up_mode",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9e995144e427fbe8228b11d38ce4c03570f8487e0e285d866e45574cb3504d40"
+}

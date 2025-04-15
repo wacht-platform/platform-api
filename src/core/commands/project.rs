@@ -123,8 +123,8 @@ impl CreateProjectCommand {
             password: password_settings,
             auth_factors_enabled,
             verification_policy,
-            second_factor_policy: Some(SecondFactorPolicy::None),
-            second_factor: Some(SecondFactor::None),
+            second_factor_policy: SecondFactorPolicy::None,
+            second_factor: SecondFactor::None,
             ..DeploymentAuthSettings::default()
         }
     }
@@ -137,10 +137,10 @@ impl CreateProjectCommand {
         DeploymentDisplaySettings {
             deployment_id,
             app_name: self.name.clone(),
-            after_sign_out_all_page_url: Some(format!("{}/sign-in", frontend_host)),
-            after_sign_out_one_page_url: Some(format!("{}/account-picker", frontend_host)),
-            sign_in_page_url: Some(format!("{}/sign-in", frontend_host)),
-            sign_up_page_url: Some(format!("{}/sign-up", frontend_host)),
+            after_sign_out_all_page_url: format!("{}/sign-in", frontend_host),
+            after_sign_out_one_page_url: format!("{}/account-picker", frontend_host),
+            sign_in_page_url: format!("{}/sign-in", frontend_host),
+            sign_up_page_url: format!("{}/sign-up", frontend_host),
             ..DeploymentDisplaySettings::default()
         }
     }
@@ -252,7 +252,6 @@ impl Command for CreateProjectCommand {
                 username,
                 first_factor,
                 alternate_first_factors,
-                password_policy,
                 first_name,
                 last_name,
                 password,
@@ -283,8 +282,7 @@ impl Command for CreateProjectCommand {
                 $15,
                 $16,
                 $17,
-                $18,
-                $19
+                $18
             )
             "#,
             app_state.sf.next_id()? as i64,
@@ -302,8 +300,6 @@ impl Command for CreateProjectCommand {
                 .iter()
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>(),
-            serde_json::to_value(&auth_settings.password)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.first_name)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.last_name)
@@ -314,11 +310,8 @@ impl Command for CreateProjectCommand {
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.verification_policy)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
-            auth_settings
-                .second_factor_policy
-                .unwrap_or(SecondFactorPolicy::None)
-                .to_string(),
-            auth_settings.second_factor.map(|f| f.to_string()),
+            auth_settings.second_factor_policy.to_string(),
+            auth_settings.second_factor.to_string(),
             serde_json::to_value(&auth_settings.passkey)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.magic_link)
@@ -520,28 +513,24 @@ impl Command for CreateProjectCommand {
 
         let deployment = Deployment {
             id: deployment_row.id,
-            created_at: deployment_row.created_at.unwrap_or_default(),
-            updated_at: deployment_row.updated_at.unwrap_or_default(),
+            created_at: deployment_row.created_at,
+            updated_at: deployment_row.updated_at,
             deleted_at: deployment_row.deleted_at,
-            maintenance_mode: deployment_row.maintenance_mode.unwrap_or_default(),
-            host: deployment_row.host.unwrap_or_default(),
-            publishable_key: deployment_row.publishable_key.unwrap_or_default(),
-            secret: deployment_row.secret.unwrap_or_default(),
-            project_id: deployment_row.project_id.unwrap_or_default(),
-            mode: DeploymentMode::from(
-                deployment_row
-                    .mode
-                    .unwrap_or_else(|| "production".to_string()),
-            ),
+            maintenance_mode: deployment_row.maintenance_mode,
+            host: deployment_row.host,
+            publishable_key: deployment_row.publishable_key,
+            secret: deployment_row.secret,
+            project_id: deployment_row.project_id,
+            mode: DeploymentMode::from(deployment_row.mode),
         };
 
         Ok(ProjectWithDeployments {
             id: project_row.id,
             image_url: project_row.image_url,
-            created_at: project_row.created_at.unwrap_or_default(),
-            updated_at: project_row.updated_at.unwrap_or_default(),
+            created_at: project_row.created_at,
+            updated_at: project_row.updated_at,
             deleted_at: project_row.deleted_at,
-            name: project_row.name.unwrap_or_default(),
+            name: project_row.name,
             deployments: vec![deployment],
         })
     }

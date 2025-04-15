@@ -1,9 +1,16 @@
 use crate::{
-    application::{ApiResult, AppState, DeploymentAuthSettingsUpdates},
+    application::{
+        ApiResult, AppState, DeploymentAuthSettingsUpdates, DeploymentRestrictionsUpdates,
+    },
     core::{
-        commands::{Command, UpdateDeploymentAuthSettingsCommand},
-        models::DeploymentWithSettings,
-        queries::{Query, deployment::GetDeploymentWithSettingsQuery},
+        commands::{
+            Command, UpdateDeploymentAuthSettingsCommand, UpdateDeploymentRestrictionsCommand,
+        },
+        models::{DeploymentJwtTemplate, DeploymentWithSettings},
+        queries::{
+            Query,
+            deployment::{GetDeploymentJwtTemplatesQuery, GetDeploymentWithSettingsQuery},
+        },
     },
 };
 use axum::{
@@ -27,12 +34,32 @@ pub async fn update_deployment_authetication_settings(
     Path(deployment_id): Path<i64>,
     Json(settings): Json<DeploymentAuthSettingsUpdates>,
 ) -> ApiResult<()> {
-    let command = UpdateDeploymentAuthSettingsCommand {
-        deployment_id,
-        settings,
-    };
+    UpdateDeploymentAuthSettingsCommand::new(deployment_id, settings)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
 
-    command.execute(&app_state).await?;
+pub async fn update_deployment_restrictions(
+    State(app_state): State<AppState>,
+    Path(deployment_id): Path<i64>,
+    Json(updates): Json<DeploymentRestrictionsUpdates>,
+) -> ApiResult<()> {
+    UpdateDeploymentRestrictionsCommand::new(deployment_id, updates)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
 
-    Ok(().into())
+pub async fn get_deployment_jwt_templates(
+    State(app_state): State<AppState>,
+    Path(deployment_id): Path<i64>,
+) -> ApiResult<Vec<DeploymentJwtTemplate>> {
+    GetDeploymentJwtTemplatesQuery::new(deployment_id)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
 }

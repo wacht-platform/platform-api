@@ -3,6 +3,8 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::application::AppError;
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum FirstFactor {
@@ -83,15 +85,17 @@ pub enum SecondFactorPolicy {
 }
 
 impl FromStr for SecondFactorPolicy {
-    type Err = String;
+    type Err = AppError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("from_str: {}", s);
         match s {
             "none" => Ok(SecondFactorPolicy::None),
             "optional" => Ok(SecondFactorPolicy::Optional),
             "enforced" => Ok(SecondFactorPolicy::Enforced),
-            _ => Err(format!("Invalid second factor policy: {}", s)),
+            _ => Err(AppError::Serialization(format!(
+                "Invalid second factor policy: {}",
+                s
+            ))),
         }
     }
 }
@@ -286,6 +290,23 @@ impl Default for PasskeySettings {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MultiSessionSupport {
+    pub enabled: bool,
+    pub max_accounts_per_session: i64,
+    pub max_sessions_per_account: i64,
+}
+
+impl Default for MultiSessionSupport {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_accounts_per_session: 5,
+            max_sessions_per_account: 5,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeploymentAuthSettings {
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub id: i64,
@@ -302,9 +323,13 @@ pub struct DeploymentAuthSettings {
     pub passkey: Option<PasskeySettings>,
     pub auth_factors_enabled: AuthFactorsEnabled,
     pub verification_policy: VerificationPolicy,
-    pub second_factor_policy: Option<SecondFactorPolicy>,
+    pub second_factor_policy: SecondFactorPolicy,
     pub first_factor: FirstFactor,
-    pub second_factor: Option<SecondFactor>,
+    pub second_factor: SecondFactor,
+    pub multi_session_support: MultiSessionSupport,
+    pub session_token_lifetime: i64,
+    pub session_validity_period: i64,
+    pub session_inactive_timeout: i64,
     pub alternate_first_factors: Option<Vec<FirstFactor>>,
     pub alternate_second_factors: Option<Vec<SecondFactor>>,
     pub deployment_id: i64,
@@ -325,11 +350,15 @@ impl Default for DeploymentAuthSettings {
             password: PasswordSettings::default(),
             magic_link: Some(EmailLinkSettings::default()),
             passkey: Some(PasskeySettings::default()),
+            multi_session_support: MultiSessionSupport::default(),
+            session_token_lifetime: 30 * 60,
+            session_validity_period: 30 * 24 * 60 * 60,
+            session_inactive_timeout: 7 * 60 * 60 * 24,
             auth_factors_enabled: AuthFactorsEnabled::default(),
             verification_policy: VerificationPolicy::default(),
-            second_factor_policy: Some(SecondFactorPolicy::Optional),
+            second_factor_policy: SecondFactorPolicy::Optional,
             first_factor: FirstFactor::EmailPassword,
-            second_factor: Some(SecondFactor::Authenticator),
+            second_factor: SecondFactor::Authenticator,
             alternate_first_factors: Some(vec![]),
             alternate_second_factors: Some(vec![]),
             deployment_id: 0,

@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::core::models::{OauthCredentials, SecondFactorPolicy, SocialConnectionProvider};
+use crate::core::models::{
+    CountryRestrictions, DeploymentRestrictionsSignUpMode, MultiSessionSupport, OauthCredentials,
+    SecondFactorPolicy, SocialConnectionProvider,
+};
 
-// Define partial update structs corresponding to core models
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PartialEmailSettings {
     pub enabled: Option<bool>,
@@ -80,14 +82,6 @@ pub struct PartialAuthenticationFactorSettings {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SessionSettings {
-    pub max_session_age: Option<i64>,
-    pub inactivity_timeout: Option<i64>,
-    pub allow_multi_account_session: Option<bool>,
-    pub default_jwt_template: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct SocialProviderConfig {
     pub enabled: bool,
     pub client_id: String,
@@ -127,14 +121,13 @@ pub struct DeploymentAuthSettingsUpdates {
     pub password: Option<PartialPasswordSettings>,
     pub name: Option<PartialNameSettings>,
     pub authentication_factors: Option<PartialAuthenticationFactorSettings>,
-    pub restrictions: Option<RestrictionSettings>,
-    pub session: Option<SessionSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub second_factor_policy: Option<SecondFactorPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backup_code: Option<PartialIndividualAuthSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub web3_wallet: Option<PartialIndividualAuthSettings>,
+    pub multi_session_support: Option<MultiSessionSupport>,
+    pub session_token_lifetime: Option<i64>,
+    pub session_validity_period: Option<i64>,
+    pub session_inactive_timeout: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -143,4 +136,22 @@ pub struct DeploymentSocialConnectionUpsert {
     pub enabled: Option<bool>,
     pub user_defined_scopes: Option<Vec<String>>,
     pub credentials: Option<OauthCredentials>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeploymentRestrictionsUpdates {
+    pub allowlist_enabled: Option<bool>,
+    pub blocklist_enabled: Option<bool>,
+    pub block_subaddresses: Option<bool>,
+    pub block_disposable_emails: Option<bool>,
+    pub block_voip_numbers: Option<bool>,
+    pub country_restrictions: Option<CountryRestrictions>,
+    pub banned_keywords: Option<Vec<String>>,
+    pub allowlisted_resources: Option<Vec<String>>,
+    pub blocklisted_resources: Option<Vec<String>>,
+    pub sign_up_mode: Option<DeploymentRestrictionsSignUpMode>,
+    pub multi_session_support: Option<MultiSessionSupport>,
+    pub session_token_lifetime: Option<i64>,
+    pub session_validity_period: Option<i64>,
+    pub session_inactive_timeout: Option<i64>,
 }

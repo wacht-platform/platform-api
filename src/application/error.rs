@@ -41,3 +41,9 @@ impl From<AppError> for ApiErrorResponse {
         }
     }
 }
+
+impl From<serde_json::Error> for AppError {
+    fn from(error: serde_json::Error) -> Self {
+        AppError::Serialization(error.to_string())
+    }
+}

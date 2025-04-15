@@ -1,15 +1,14 @@
 use std::str::FromStr;
 
-use sqlx::query;
-
 use crate::{
     application::{AppError, AppState},
     core::models::{
-        DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentMode, DeploymentOrgSettings,
-        DeploymentRestrictions, DeploymentRestrictionsSignUpMode, DeploymentSocialConnection,
-        DeploymentWithSettings,
+        DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentJwtTemplate, DeploymentMode,
+        DeploymentOrgSettings, DeploymentRestrictions, DeploymentRestrictionsSignUpMode,
+        DeploymentSocialConnection, DeploymentWithSettings,
     },
 };
+use sqlx::query;
 
 use super::Query;
 
@@ -48,7 +47,6 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.first_name::jsonb as first_name,
                 deployment_auth_settings.last_name::jsonb as last_name, 
                 deployment_auth_settings.password::jsonb as password,
-                deployment_auth_settings.password_policy::jsonb as password_policy,
                 deployment_auth_settings.auth_factors_enabled::jsonb as auth_factors_enabled,
                 deployment_auth_settings.verification_policy::jsonb as verification_policy,
                 deployment_auth_settings.second_factor_policy::text as second_factor_policy, 
@@ -56,6 +54,10 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.second_factor::text as second_factor,
                 deployment_auth_settings.passkey::jsonb as passkey,
                 deployment_auth_settings.magic_link::jsonb as magic_link,
+                deployment_auth_settings.multi_session_support::jsonb as multi_session_support,
+                deployment_auth_settings.session_token_lifetime,
+                deployment_auth_settings.session_validity_period,
+                deployment_auth_settings.session_inactive_timeout,
                 array_to_json(deployment_auth_settings.alternate_first_factors)::jsonb as alternate_first_factors,
                 array_to_json(deployment_auth_settings.alternate_second_factors)::jsonb as alternate_second_factors,
                 
@@ -124,19 +126,14 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
         .fetch_one(&app_state.db_pool)
         .await?;
 
-        let mode = match row.mode.as_ref().map(|s| s.to_lowercase()).as_deref() {
-            Some("production") => DeploymentMode::Production,
-            Some("staging") => DeploymentMode::Staging,
-            Some(mode) => {
+        let mode = match row.mode.as_str() {
+            "production" => DeploymentMode::Production,
+            "staging" => DeploymentMode::Staging,
+            _ => {
                 return Err(AppError::Database(sqlx::Error::Protocol(format!(
                     "Invalid deployment mode: {}",
-                    mode
+                    row.mode
                 ))));
-            }
-            None => {
-                return Err(AppError::Database(sqlx::Error::Protocol(
-                    "Mode is required".into(),
-                )));
             }
         };
 
@@ -145,10 +142,10 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             created_at: row.created_at,
             updated_at: row.updated_at,
             deleted_at: row.deleted_at,
-            maintenance_mode: row.maintenance_mode.unwrap_or_default(),
-            host: row.host.unwrap_or_default(),
-            publishable_key: row.publishable_key.unwrap_or_default(),
-            secret: row.secret.unwrap_or_default(),
+            maintenance_mode: row.maintenance_mode,
+            host: row.host,
+            publishable_key: row.publishable_key,
+            secret: row.secret,
             mode,
             auth_settings: if row.auth_settings_id.is_some() {
                 Some(DeploymentAuthSettings {
@@ -160,25 +157,17 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                         .unwrap(),
                     phone_number: serde_json::from_value(row.phone_number.unwrap_or_default())
                         .unwrap(),
-                    username: serde_json::from_value(row.username.unwrap_or_default()).unwrap(),
-                    first_name: serde_json::from_value(row.first_name.unwrap_or_default()).unwrap(),
-                    last_name: serde_json::from_value(row.last_name.unwrap_or_default()).unwrap(),
-                    password: serde_json::from_value(row.password.unwrap_or_default()).unwrap(),
-                    auth_factors_enabled: serde_json::from_value(
-                        row.auth_factors_enabled.unwrap_or_default(),
-                    )
-                    .unwrap_or_default(),
-                    verification_policy: serde_json::from_value(
-                        row.verification_policy.unwrap_or_default(),
-                    )
-                    .unwrap(),
-                    passkey: serde_json::from_value(row.passkey.unwrap_or_default()).unwrap(),
-                    magic_link: serde_json::from_value(row.magic_link.unwrap_or_default()).unwrap(),
-                    second_factor_policy: row
-                        .second_factor_policy
-                        .map(|s| FromStr::from_str(&s).unwrap()),
-                    first_factor: FromStr::from_str(&row.first_factor.unwrap_or_default()).unwrap(),
-                    second_factor: row.second_factor.map(|s| FromStr::from_str(&s).unwrap()),
+                    username: serde_json::from_value(row.username).unwrap(),
+                    first_name: serde_json::from_value(row.first_name).unwrap(),
+                    last_name: serde_json::from_value(row.last_name).unwrap(),
+                    password: serde_json::from_value(row.password).unwrap(),
+                    auth_factors_enabled: serde_json::from_value(row.auth_factors_enabled).unwrap(),
+                    verification_policy: serde_json::from_value(row.verification_policy).unwrap(),
+                    passkey: serde_json::from_value(row.passkey).unwrap(),
+                    magic_link: serde_json::from_value(row.magic_link).unwrap(),
+                    second_factor_policy: FromStr::from_str(&row.second_factor_policy).unwrap(),
+                    first_factor: FromStr::from_str(&row.first_factor).unwrap(),
+                    second_factor: FromStr::from_str(&row.second_factor).unwrap(),
                     alternate_first_factors: row
                         .alternate_first_factors
                         .map(|v| serde_json::from_value(v).unwrap_or_default()),
@@ -186,6 +175,11 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                         .alternate_second_factors
                         .map(|v| serde_json::from_value(v).unwrap_or_default()),
                     deployment_id: self.deployment_id,
+                    multi_session_support: serde_json::from_value(row.multi_session_support)
+                        .unwrap(),
+                    session_token_lifetime: row.session_token_lifetime,
+                    session_validity_period: row.session_validity_period,
+                    session_inactive_timeout: row.session_inactive_timeout,
                 })
             } else {
                 None
@@ -197,8 +191,8 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                     updated_at: row.display_settings_updated_at,
                     deleted_at: row.display_settings_deleted_at,
                     deployment_id: self.deployment_id,
-                    app_name: row.app_name.unwrap_or_default(),
-                    primary_color: row.primary_color.unwrap_or_default(),
+                    app_name: row.app_name,
+                    primary_color: row.primary_color,
                     tos_page_url: row.tos_page_url,
                     sign_in_page_url: row.sign_in_page_url,
                     sign_up_page_url: row.sign_up_page_url,
@@ -208,13 +202,9 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                     logo_image_url: row.logo_image_url,
                     privacy_policy_url: row.privacy_policy_url,
                     signup_terms_statement: row.signup_terms_statement,
-                    signup_terms_statement_shown: row
-                        .signup_terms_statement_shown
-                        .unwrap_or_default(),
-                    button_config: serde_json::from_value(row.button_config.unwrap_or_default())
-                        .unwrap(),
-                    input_config: serde_json::from_value(row.input_config.unwrap_or_default())
-                        .unwrap(),
+                    signup_terms_statement_shown: row.signup_terms_statement_shown,
+                    button_config: serde_json::from_value(row.button_config).unwrap(),
+                    input_config: serde_json::from_value(row.input_config).unwrap(),
                 })
             } else {
                 None
@@ -226,12 +216,12 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                     updated_at: row.org_settings_updated_at,
                     deleted_at: row.org_settings_deleted_at,
                     deployment_id: self.deployment_id,
-                    enabled: row.enabled.unwrap_or_default(),
-                    ip_allowlist_enabled: row.ip_allowlist_enabled.unwrap_or_default(),
-                    max_allowed_members: row.max_allowed_members.unwrap_or_default(),
-                    allow_deletion: row.allow_deletion.unwrap_or_default(),
-                    custom_role_enabled: row.custom_role_enabled.unwrap_or_default(),
-                    default_role: row.default_role.unwrap_or_default(),
+                    enabled: row.enabled,
+                    ip_allowlist_enabled: row.ip_allowlist_enabled,
+                    max_allowed_members: row.max_allowed_members,
+                    allow_deletion: row.allow_deletion,
+                    custom_role_enabled: row.custom_role_enabled,
+                    default_role: row.default_role,
                 })
             } else {
                 None
@@ -243,22 +233,17 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                     updated_at: row.restrictions_updated_at,
                     deleted_at: row.restrictions_deleted_at,
                     deployment_id: self.deployment_id,
-                    allowlist_enabled: row.allowlist_enabled.unwrap_or_default(),
-                    blocklist_enabled: row.blocklist_enabled.unwrap_or_default(),
-                    block_subaddresses: row.block_subaddresses.unwrap_or_default(),
-                    block_disposable_emails: row.block_disposable_emails.unwrap_or_default(),
-                    block_voip_numbers: row.block_voip_numbers.unwrap_or_default(),
-                    country_restrictions: serde_json::from_value(
-                        row.country_restrictions.unwrap_or_default(),
-                    )
-                    .unwrap(),
-                    banned_keywords: row.banned_keywords.unwrap_or_default(),
-                    allowlisted_resources: row.allowlisted_resources.unwrap_or_default(),
-                    blocklisted_resources: row.blocklisted_resources.unwrap_or_default(),
-                    sign_up_mode: DeploymentRestrictionsSignUpMode::from_str(
-                        row.sign_up_mode.as_ref().unwrap_or(&"public".to_string()),
-                    )
-                    .unwrap(),
+                    allowlist_enabled: row.allowlist_enabled,
+                    blocklist_enabled: row.blocklist_enabled,
+                    block_subaddresses: row.block_subaddresses,
+                    block_disposable_emails: row.block_disposable_emails,
+                    block_voip_numbers: row.block_voip_numbers,
+                    country_restrictions: serde_json::from_value(row.country_restrictions).unwrap(),
+                    banned_keywords: row.banned_keywords,
+                    allowlisted_resources: row.allowlisted_resources,
+                    blocklisted_resources: row.blocklisted_resources,
+                    sign_up_mode: DeploymentRestrictionsSignUpMode::from_str(&row.sign_up_mode)
+                        .unwrap(),
                 })
             } else {
                 None
@@ -292,7 +277,6 @@ impl Query<Vec<DeploymentSocialConnection>> for GetDeploymentSocialConnectionsQu
                 deployment_id,
                 provider,
                 enabled,
-                user_defined_scopes,
                 credentials
             FROM deployment_social_connections
             WHERE deployment_id = $1 AND deleted_at IS NULL
@@ -317,5 +301,60 @@ impl Query<Vec<DeploymentSocialConnection>> for GetDeploymentSocialConnectionsQu
                     .map(|v| serde_json::from_value(v).unwrap_or_default()),
             })
             .collect())
+    }
+}
+
+pub struct GetDeploymentJwtTemplatesQuery {
+    deployment_id: i64,
+}
+
+impl GetDeploymentJwtTemplatesQuery {
+    pub fn new(deployment_id: i64) -> Self {
+        Self { deployment_id }
+    }
+}
+
+impl Query<Vec<DeploymentJwtTemplate>> for GetDeploymentJwtTemplatesQuery {
+    async fn execute(&self, app_state: &AppState) -> Result<Vec<DeploymentJwtTemplate>, AppError> {
+        let row = query!(
+            r#"
+            SELECT 
+                id,
+                created_at,
+                updated_at,
+                deleted_at,
+                deployment_id,
+                name,
+                token_lifetime,
+                allowed_clock_skew,
+                custom_signing_key,
+                template
+            FROM deployment_jwt_templates
+            WHERE deployment_id = $1 AND deleted_at IS NULL
+            "#,
+            self.deployment_id,
+        )
+        .fetch_all(&app_state.db_pool)
+        .await?;
+
+        let templates = row
+            .into_iter()
+            .map(|row| DeploymentJwtTemplate {
+                id: row.id,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                deleted_at: row.deleted_at,
+                deployment_id: row.deployment_id,
+                name: row.name,
+                token_lifetime: row.token_lifetime,
+                allowed_clock_skew: row.allowed_clock_skew,
+                custom_signing_key: row
+                    .custom_signing_key
+                    .map(|v| serde_json::from_value(v).unwrap_or_default()),
+                template: row.template,
+            })
+            .collect();
+
+        Ok(templates)
     }
 }

@@ -37,6 +37,10 @@ fn deployment_routes() -> Router<AppState> {
             patch(api::deployment::settings::update_deployment_authetication_settings),
         )
         .route(
+            "/restrictions",
+            patch(api::deployment::settings::update_deployment_restrictions),
+        )
+        .route(
             "/social-connections",
             get(api::deployment::connection::get_deployment_social_connections),
         )

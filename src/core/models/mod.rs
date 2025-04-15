@@ -1,6 +1,7 @@
 mod auth_settings;
 mod deployment;
 mod deployment_display_settings;
+mod deployment_jwt_template;
 mod deployment_keypair;
 mod deployment_org_settings;
 mod deployment_restrictions;
@@ -26,6 +27,7 @@ pub use auth_settings::*;
 pub use deployment::*;
 pub use deployment::*;
 pub use deployment_display_settings::*;
+pub use deployment_jwt_template::*;
 pub use deployment_keypair::*;
 pub use deployment_org_settings::*;
 pub use deployment_restrictions::*;

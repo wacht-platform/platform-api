@@ -3,7 +3,7 @@ use std::str::FromStr;
 use super::Command;
 use crate::{
     application::{
-        AppError, AppState, DeploymentSocialConnectionUpsert,
+        AppError, AppState, DeploymentRestrictionsUpdates, DeploymentSocialConnectionUpsert,
         http::models::json::deployment_settings::DeploymentAuthSettingsUpdates,
     },
     core::models::{DeploymentSocialConnection, SocialConnectionProvider},
@@ -13,7 +13,16 @@ use serde_json::{Map, Value, json};
 
 pub struct UpdateDeploymentAuthSettingsCommand {
     pub deployment_id: i64,
-    pub settings: DeploymentAuthSettingsUpdates,
+    pub updates: DeploymentAuthSettingsUpdates,
+}
+
+impl UpdateDeploymentAuthSettingsCommand {
+    pub fn new(deployment_id: i64, updates: DeploymentAuthSettingsUpdates) -> Self {
+        Self {
+            deployment_id,
+            updates,
+        }
+    }
 }
 
 fn build_partial_json<T: serde::Serialize>(data: Option<&T>) -> Option<Value> {
@@ -36,29 +45,30 @@ impl Command for UpdateDeploymentAuthSettingsCommand {
     type Output = ();
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
-        let mut direct_updates: Vec<(&str, String)> = Vec::new();
+        let mut text_updates: Vec<(&str, String)> = Vec::new();
+        let mut int_updates: Vec<(&str, i64)> = Vec::new();
         let mut jsonb_merges: Vec<(&str, Value)> = Vec::new();
 
-        if let Some(json_val) = build_partial_json(self.settings.email.as_ref()) {
+        if let Some(json_val) = build_partial_json(self.updates.email.as_ref()) {
             jsonb_merges.push(("email_address", json_val));
         }
-        if let Some(json_val) = build_partial_json(self.settings.phone.as_ref()) {
+        if let Some(json_val) = build_partial_json(self.updates.phone.as_ref()) {
             jsonb_merges.push(("phone_number", json_val));
         }
-        if let Some(json_val) = build_partial_json(self.settings.username.as_ref()) {
+        if let Some(json_val) = build_partial_json(self.updates.username.as_ref()) {
             jsonb_merges.push(("username", json_val));
         }
-        if let Some(json_val) = build_partial_json(self.settings.password.as_ref()) {
+        if let Some(json_val) = build_partial_json(self.updates.password.as_ref()) {
             jsonb_merges.push(("password", json_val));
         }
-        if let Some(json_val) = build_partial_json(self.settings.backup_code.as_ref()) {
+        if let Some(json_val) = build_partial_json(self.updates.backup_code.as_ref()) {
             jsonb_merges.push(("backup_code", json_val));
         }
-        if let Some(json_val) = build_partial_json(self.settings.web3_wallet.as_ref()) {
+        if let Some(json_val) = build_partial_json(self.updates.web3_wallet.as_ref()) {
             jsonb_merges.push(("web3_wallet", json_val));
         }
 
-        if let Some(name_settings) = &self.settings.name {
+        if let Some(name_settings) = &self.updates.name {
             let mut first_name_partial = Map::new();
             if let Some(enabled) = name_settings.first_name_enabled {
                 first_name_partial.insert("enabled".to_string(), json!(enabled));
@@ -84,7 +94,7 @@ impl Command for UpdateDeploymentAuthSettingsCommand {
 
         let mut auth_factors_enabled_updates = Map::new();
         let mut process_auth_factors = false;
-        if let Some(auth_factors) = &self.settings.authentication_factors {
+        if let Some(auth_factors) = &self.updates.authentication_factors {
             process_auth_factors = true;
 
             if let Some(json_val) = build_partial_json(auth_factors.magic_link.as_ref()) {
@@ -141,25 +151,31 @@ impl Command for UpdateDeploymentAuthSettingsCommand {
             ));
         }
 
-        if let Some(restrictions) = &self.settings.restrictions {
-            if let Some(json_val) = build_partial_json(Some(restrictions)) {
-                jsonb_merges.push(("restrictions", json_val));
-            }
-        }
-        if let Some(session) = &self.settings.session {
-            if let Some(json_val) = build_partial_json(Some(session)) {
-                jsonb_merges.push(("session_settings", json_val));
-            }
+        if let Some(policy) = self.updates.second_factor_policy {
+            text_updates.push(("second_factor_policy", policy.to_string()));
         }
 
-        if let Some(policy) = self.settings.second_factor_policy {
-            direct_updates.push(("second_factor_policy", policy.to_string()));
+        if let Some(session) = &self.updates.multi_session_support {
+            jsonb_merges.push(("multi_session_support", serde_json::to_value(session)?));
         }
 
-        let has_direct_updates = !direct_updates.is_empty();
+        if let Some(session_token_lifetime) = &self.updates.session_token_lifetime {
+            int_updates.push(("session_token_lifetime", *session_token_lifetime));
+        }
+
+        if let Some(session_validity_period) = &self.updates.session_validity_period {
+            int_updates.push(("session_validity_period", *session_validity_period));
+        }
+
+        if let Some(session_inactive_timeout) = &self.updates.session_inactive_timeout {
+            int_updates.push(("session_inactive_timeout", *session_inactive_timeout));
+        }
+
+        let has_text_updates = !text_updates.is_empty();
+        let has_int_updates = !int_updates.is_empty();
         let has_jsonb_merges = !jsonb_merges.is_empty();
 
-        if !has_direct_updates && !has_jsonb_merges {
+        if !has_text_updates && !has_int_updates && !has_jsonb_merges {
             println!(
                 "No settings updates to apply for deployment_id: {}",
                 self.deployment_id
@@ -170,11 +186,18 @@ impl Command for UpdateDeploymentAuthSettingsCommand {
         let mut query_builder =
             sqlx::QueryBuilder::new("UPDATE deployment_auth_settings SET updated_at = NOW() ");
 
-        for (_, (column, value)) in direct_updates.iter().enumerate() {
+        for (_, (column, value)) in text_updates.iter().enumerate() {
             query_builder.push(", ");
             query_builder.push(*column);
             query_builder.push(" = ");
-            query_builder.push_bind(value.clone());
+            query_builder.push_bind(value);
+        }
+
+        for (_, (column, value)) in int_updates.iter().enumerate() {
+            query_builder.push(", ");
+            query_builder.push(*column);
+            query_builder.push(" = ");
+            query_builder.push_bind(value);
         }
 
         for (column, json_val) in jsonb_merges {
@@ -188,7 +211,11 @@ impl Command for UpdateDeploymentAuthSettingsCommand {
         query_builder.push(" WHERE deployment_id = ");
         query_builder.push_bind(self.deployment_id);
 
-        query_builder.build().execute(&app_state.db_pool).await?;
+        query_builder
+            .build()
+            .execute(&app_state.db_pool)
+            .await
+            .unwrap();
 
         Ok(())
     }
@@ -240,5 +267,85 @@ impl Command for UpsertDeploymentSocialConnectionCommand {
         };
 
         Ok(connection)
+    }
+}
+
+pub struct UpdateDeploymentRestrictionsCommand {
+    pub deployment_id: i64,
+    pub updates: DeploymentRestrictionsUpdates,
+}
+
+impl UpdateDeploymentRestrictionsCommand {
+    pub fn new(deployment_id: i64, updates: DeploymentRestrictionsUpdates) -> Self {
+        Self {
+            deployment_id,
+            updates,
+        }
+    }
+}
+
+impl Command for UpdateDeploymentRestrictionsCommand {
+    type Output = ();
+
+    async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        let mut query_builder =
+            sqlx::QueryBuilder::new("UPDATE deployment_restrictions SET updated_at = NOW() ");
+
+        if let Some(allowlist_enabled) = self.updates.allowlist_enabled {
+            query_builder.push(", allowlist_enabled = ");
+            query_builder.push_bind(allowlist_enabled);
+        }
+
+        if let Some(blocklist_enabled) = self.updates.blocklist_enabled {
+            query_builder.push(", blocklist_enabled = ");
+            query_builder.push_bind(blocklist_enabled);
+        }
+
+        if let Some(block_subaddresses) = self.updates.block_subaddresses {
+            query_builder.push(", block_subaddresses = ");
+            query_builder.push_bind(block_subaddresses);
+        }
+
+        if let Some(block_disposable_emails) = self.updates.block_disposable_emails {
+            query_builder.push(", block_disposable_emails = ");
+            query_builder.push_bind(block_disposable_emails);
+        }
+
+        if let Some(block_voip_numbers) = self.updates.block_voip_numbers {
+            query_builder.push(", block_voip_numbers = ");
+            query_builder.push_bind(block_voip_numbers);
+        }
+
+        if let Some(country_restrictions) = self.updates.country_restrictions {
+            query_builder.push(", country_restrictions = ");
+            query_builder.push_bind(serde_json::to_value(country_restrictions)?);
+        }
+
+        if let Some(banned_keywords) = self.updates.banned_keywords {
+            query_builder.push(", banned_keywords = ");
+            query_builder.push_bind(banned_keywords);
+        }
+
+        if let Some(allowlisted_resources) = self.updates.allowlisted_resources {
+            query_builder.push(", allowlisted_resources = ");
+            query_builder.push_bind(allowlisted_resources);
+        }
+
+        if let Some(blocklisted_resources) = self.updates.blocklisted_resources {
+            query_builder.push(", blocklisted_resources = ");
+            query_builder.push_bind(blocklisted_resources);
+        }
+
+        if let Some(sign_up_mode) = self.updates.sign_up_mode {
+            query_builder.push(", sign_up_mode = ");
+            query_builder.push_bind(sign_up_mode.to_string());
+        }
+
+        query_builder.push(" WHERE deployment_id = ");
+        query_builder.push_bind(self.deployment_id);
+
+        query_builder.build().execute(&app_state.db_pool).await?;
+
+        Ok(().into())
     }
 }

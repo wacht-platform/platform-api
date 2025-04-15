@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                id,\n                created_at,\n                updated_at,\n                deleted_at,\n                deployment_id,\n                name,\n                token_lifetime,\n                allowed_clock_skew,\n                custom_signing_key,\n                template\n            FROM deployment_jwt_templates\n            WHERE deployment_id = $1 AND deleted_at IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "deployment_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "token_lifetime",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "allowed_clock_skew",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "custom_signing_key",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "template",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "f6982050ef6a98d08fff5e7dc6fb42209b42dfdbe2340b8566e7b6519f9bd22b"
+}

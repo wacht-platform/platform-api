@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT \n                id,\n                created_at,\n                updated_at,\n                deleted_at,\n                deployment_id,\n                provider,\n                enabled,\n                user_defined_scopes,\n                credentials\n            FROM deployment_social_connections\n            WHERE deployment_id = $1 AND deleted_at IS NULL\n            ",
+  "query": "\n            INSERT INTO deployment_social_connections (id, created_at, updated_at, deployment_id, provider, enabled, credentials)\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            ON CONFLICT (deployment_id, provider) DO UPDATE SET updated_at = NOW(), enabled = EXCLUDED.enabled, credentials = EXCLUDED.credentials RETURNING *\n            ",
   "describe": {
     "columns": [
       {
@@ -40,31 +40,31 @@
       },
       {
         "ordinal": 7,
-        "name": "user_defined_scopes",
-        "type_info": "TextArray"
-      },
-      {
-        "ordinal": 8,
         "name": "credentials",
-        "type_info": "Json"
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Int8",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8",
+        "Text",
+        "Bool",
+        "Jsonb"
       ]
     },
     "nullable": [
       false,
+      false,
+      false,
       true,
       true,
       true,
-      true,
-      true,
-      true,
-      true,
+      false,
       true
     ]
   },
-  "hash": "9dbd0ad3f6ddebe7c9c2111353f7b0765b6db43f48d16fbb90fb8b37a63a83f8"
+  "hash": "1a6ddef095afd131e45e5626d7268b0f66945b0a28ec149d6d603caed9546bca"
 }
