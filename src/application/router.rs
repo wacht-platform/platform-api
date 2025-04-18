@@ -29,6 +29,30 @@ fn deployment_routes() -> Router<AppState> {
             get(api::deployment::settings::get_deployment_with_settings),
         )
         .route(
+            "/jwt-templates",
+            get(api::deployment::settings::get_deployment_jwt_templates),
+        )
+        .route(
+            "/jwt-templates",
+            post(api::deployment::settings::create_deployment_jwt_template),
+        )
+        .route(
+            "/jwt-templates/{id}",
+            patch(api::deployment::settings::update_deployment_jwt_template),
+        )
+        .route(
+            "/jwt-templates/{id}",
+            delete(api::deployment::settings::delete_deployment_jwt_template),
+        )
+        .route(
+            "/workspace-roles",
+            get(api::deployment::b2b::get_deployment_workspace_roles),
+        )
+        .route(
+            "/organization-roles",
+            get(api::deployment::b2b::get_deployment_org_roles),
+        )
+        .route(
             "/organizations",
             get(api::deployment::organization::get_organization_list),
         )
@@ -47,6 +71,10 @@ fn deployment_routes() -> Router<AppState> {
         .route(
             "/social-connections",
             put(api::deployment::connection::upsert_deployment_social_connection),
+        )
+        .route(
+            "/settings/b2b-settings",
+            patch(api::deployment::b2b::update_deployment_b2b_settings),
         );
 
     Router::new().nest("/deployments/{deployment_id}", routes)

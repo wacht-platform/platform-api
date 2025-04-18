@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE deployment_b2b_settings\n                SET deleted_at = $1\n                WHERE deployment_id = $2 AND deleted_at IS NULL\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6744a3c2b5facb8448eadb06b284466f30cd963eb64a27b2fdea95342503a7c0"
+}

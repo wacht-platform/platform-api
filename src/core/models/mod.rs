@@ -1,5 +1,7 @@
-mod auth_settings;
 mod deployment;
+mod deployment_auth_settings;
+mod deployment_b2b_settings;
+mod deployment_custom_roles;
 mod deployment_display_settings;
 mod deployment_jwt_template;
 mod deployment_keypair;
@@ -23,9 +25,10 @@ mod workspace_membership;
 mod workspace_permission;
 mod workspace_role;
 
-pub use auth_settings::*;
 pub use deployment::*;
-pub use deployment::*;
+pub use deployment_auth_settings::*;
+pub use deployment_b2b_settings::*;
+pub use deployment_custom_roles::*;
 pub use deployment_display_settings::*;
 pub use deployment_jwt_template::*;
 pub use deployment_keypair::*;

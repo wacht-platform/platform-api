@@ -35,8 +35,11 @@ impl GetProjectsWithDeploymentQuery {
             maintenance_mode: row
                 .get::<Option<bool>, _>("deployment_maintenance_mode")
                 .unwrap_or_default(),
-            host: row
-                .get::<Option<String>, _>("deployment_host")
+            backend_host: row
+                .get::<Option<String>, _>("deployment_backend_host")
+                .unwrap_or_default(),
+            frontend_host: row
+                .get::<Option<String>, _>("deployment_frontend_host")
                 .unwrap_or_default(),
             publishable_key: row
                 .get::<Option<String>, _>("deployment_publishable_key")
@@ -54,15 +57,18 @@ impl GetProjectsWithDeploymentQuery {
         }
     }
 }
-impl Query<Vec<ProjectWithDeployments>> for GetProjectsWithDeploymentQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<Vec<ProjectWithDeployments>, AppError> {
+impl Query for GetProjectsWithDeploymentQuery {
+    type Output = Vec<ProjectWithDeployments>;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let rows = query(
             r#"
             SELECT
                 p.id, p.created_at, p.updated_at, p.deleted_at, p.name, p.image_url,
                 d.id as deployment_id, d.created_at as deployment_created_at,
                 d.updated_at as deployment_updated_at, d.deleted_at as deployment_deleted_at,
-                d.maintenance_mode as deployment_maintenance_mode, d.host as deployment_host,
+                d.maintenance_mode as deployment_maintenance_mode, d.backend_host as deployment_backend_host,
+                d.frontend_host as deployment_frontend_host,
                 d.publishable_key as deployment_publishable_key, d.secret as deployment_secret,
                 d.project_id as deployment_project_id, d.mode as deployment_mode
             FROM projects p

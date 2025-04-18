@@ -53,8 +53,10 @@ impl DeploymentUserListQuery {
     }
 }
 
-impl Query<Vec<UserWithIdentifiers>> for DeploymentUserListQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<Vec<UserWithIdentifiers>, AppError> {
+impl Query for DeploymentUserListQuery {
+    type Output = Vec<UserWithIdentifiers>;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         println!("disbaled {:?}", self.disabled);
         println!("invited {:?}", self.invited);
 

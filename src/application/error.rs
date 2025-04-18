@@ -10,7 +10,7 @@ pub enum AppError {
     #[error("Sonyflake error: {0}")]
     Sonyflake(#[from] sonyflake::Error),
     #[error("Resource not found")]
-    NotFound,
+    NotFound(String),
     #[error("Unauthorized access")]
     Unauthorized,
     #[error("Bad request: {0}")]
@@ -31,7 +31,7 @@ impl From<AppError> for ApiErrorResponse {
             AppError::Database(_) | AppError::Sonyflake(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong").into()
             }
-            AppError::NotFound => (StatusCode::NOT_FOUND, "Not found").into(),
+            AppError::NotFound(message) => (StatusCode::NOT_FOUND, message).into(),
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized").into(),
             AppError::BadRequest(message) => (StatusCode::BAD_REQUEST, message).into(),
             AppError::Internal(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into(),

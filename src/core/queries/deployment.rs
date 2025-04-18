@@ -3,9 +3,10 @@ use std::str::FromStr;
 use crate::{
     application::{AppError, AppState},
     core::models::{
-        DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentJwtTemplate, DeploymentMode,
-        DeploymentOrgSettings, DeploymentRestrictions, DeploymentRestrictionsSignUpMode,
-        DeploymentSocialConnection, DeploymentWithSettings,
+        DeploymentAuthSettings, DeploymentB2bSettings, DeploymentB2bSettingsWithRoles,
+        DeploymentDisplaySettings, DeploymentJwtTemplate, DeploymentMode,
+        DeploymentOrganizationRole, DeploymentRestrictions, DeploymentRestrictionsSignUpMode,
+        DeploymentSocialConnection, DeploymentWithSettings, DeploymentWorkspaceRole,
     },
 };
 use sqlx::query;
@@ -22,8 +23,10 @@ impl GetDeploymentWithSettingsQuery {
     }
 }
 
-impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<DeploymentWithSettings, AppError> {
+impl Query for GetDeploymentWithSettingsQuery {
+    type Output = DeploymentWithSettings;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let row = query!(
             r#"
             SELECT 
@@ -32,7 +35,8 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployments.updated_at, 
                 deployments.deleted_at,
                 deployments.maintenance_mode, 
-                deployments.host, 
+                deployments.backend_host, 
+                deployments.frontend_host, 
                 deployments.publishable_key, 
                 deployments.secret,
                 deployments.mode,
@@ -51,15 +55,12 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.verification_policy::jsonb as verification_policy,
                 deployment_auth_settings.second_factor_policy::text as second_factor_policy, 
                 deployment_auth_settings.first_factor::text as first_factor, 
-                deployment_auth_settings.second_factor::text as second_factor,
                 deployment_auth_settings.passkey::jsonb as passkey,
                 deployment_auth_settings.magic_link::jsonb as magic_link,
                 deployment_auth_settings.multi_session_support::jsonb as multi_session_support,
                 deployment_auth_settings.session_token_lifetime,
                 deployment_auth_settings.session_validity_period,
                 deployment_auth_settings.session_inactive_timeout,
-                array_to_json(deployment_auth_settings.alternate_first_factors)::jsonb as alternate_first_factors,
-                array_to_json(deployment_auth_settings.alternate_second_factors)::jsonb as alternate_second_factors,
                 
                 deployment_display_settings.id as "display_settings_id?", 
                 deployment_display_settings.created_at as "display_settings_created_at?",
@@ -80,16 +81,54 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                 deployment_display_settings.button_config::jsonb as button_config, 
                 deployment_display_settings.input_config::jsonb as input_config,
                 
-                deployment_org_settings.id as "org_settings_id?", 
-                deployment_org_settings.created_at as "org_settings_created_at?",
-                deployment_org_settings.updated_at as "org_settings_updated_at?", 
-                deployment_org_settings.deleted_at as "org_settings_deleted_at?",
-                deployment_org_settings.enabled, 
-                deployment_org_settings.ip_allowlist_enabled, 
-                deployment_org_settings.max_allowed_members,
-                deployment_org_settings.allow_deletion, 
-                deployment_org_settings.custom_role_enabled, 
-                deployment_org_settings.default_role,
+                deployment_b2b_settings.id as "b2b_settings_id?",
+                deployment_b2b_settings.created_at as "b2b_settings_created_at?",
+                deployment_b2b_settings.updated_at as "b2b_settings_updated_at?",
+                deployment_b2b_settings.deleted_at as "b2b_settings_deleted_at?",
+                deployment_b2b_settings.organizations_enabled as "b2b_settings_organizations_enabled?",
+                deployment_b2b_settings.workspaces_enabled as "b2b_settings_workspaces_enabled?",
+                deployment_b2b_settings.ip_allowlist_per_workspace_enabled as "b2b_settings_ip_allowlist_per_workspace_enabled?",
+                deployment_b2b_settings.ip_allowlist_per_org_enabled as "b2b_settings_ip_allowlist_per_org_enabled?",
+                deployment_b2b_settings.max_allowed_org_members as "b2b_settings_max_allowed_org_members?",
+                deployment_b2b_settings.max_allowed_workspace_members as "b2b_settings_max_allowed_workspace_members?",
+                deployment_b2b_settings.allow_org_deletion as "b2b_settings_allow_org_deletion?",
+                deployment_b2b_settings.allow_workspace_deletion as "b2b_settings_allow_workspace_deletion?",
+                deployment_b2b_settings.custom_org_role_enabled as "b2b_settings_custom_org_role_enabled?",
+                deployment_b2b_settings.custom_workspace_role_enabled as "b2b_settings_custom_workspace_role_enabled?",
+                deployment_b2b_settings.limit_org_creation_per_user as "b2b_settings_limit_org_creation_per_user?",
+                deployment_b2b_settings.limit_workspace_creation_per_org as "b2b_settings_limit_workspace_creation_per_org?",
+                deployment_b2b_settings.org_creation_per_user_count as "b2b_settings_org_creation_per_user_count?",
+                deployment_b2b_settings.workspaces_per_org_count as "b2b_settings_workspaces_per_org_count?",
+                deployment_b2b_settings.allow_users_to_create_orgs as "b2b_settings_allow_users_to_create_orgs?",
+                deployment_b2b_settings.max_orgs_per_user as "b2b_settings_max_orgs_per_user?",
+                deployment_b2b_settings.default_workspace_creator_role_id as "b2b_settings_default_workspace_creator_role_id?",
+                deployment_b2b_settings.default_workspace_member_role_id as "b2b_settings_default_workspace_member_role_id?",
+                deployment_b2b_settings.default_org_creator_role_id as "b2b_settings_default_org_creator_role_id?",
+                deployment_b2b_settings.default_org_member_role_id as "b2b_settings_default_org_member_role_id?",
+
+                deployment_default_workspace_creator_role.created_at as "default_workspace_creator_role_created_at?",
+                deployment_default_workspace_creator_role.updated_at as "default_workspace_creator_role_updated_at?",
+                deployment_default_workspace_creator_role.deleted_at as "default_workspace_creator_role_deleted_at?",
+                deployment_default_workspace_creator_role.name as "default_workspace_creator_role_name?",
+                deployment_default_workspace_creator_role.permissions as "default_workspace_creator_role_permissions?",
+                
+                deployment_default_workspace_member_role.created_at as "default_workspace_member_role_created_at?",
+                deployment_default_workspace_member_role.updated_at as "default_workspace_member_role_updated_at?",
+                deployment_default_workspace_member_role.deleted_at as "default_workspace_member_role_deleted_at?",
+                deployment_default_workspace_member_role.name as "default_workspace_member_role_name?",
+                deployment_default_workspace_member_role.permissions as "default_workspace_member_role_permissions?",
+
+                deployment_default_org_creator_role.created_at as "default_org_creator_role_created_at?",
+                deployment_default_org_creator_role.updated_at as "default_org_creator_role_updated_at?",
+                deployment_default_org_creator_role.deleted_at as "default_org_creator_role_deleted_at?",
+                deployment_default_org_creator_role.name as "default_org_creator_role_name?",
+                deployment_default_org_creator_role.permissions as "default_org_creator_role_permissions?",
+
+                deployment_default_org_member_role.created_at as "default_org_member_role_created_at?",
+                deployment_default_org_member_role.updated_at as "default_org_member_role_updated_at?",
+                deployment_default_org_member_role.deleted_at as "default_org_member_role_deleted_at?",
+                deployment_default_org_member_role.name as "default_org_member_role_name?",
+                deployment_default_org_member_role.permissions as "default_org_member_role_permissions?",
 
                 deployment_restrictions.id as "restrictions_id?",
                 deployment_restrictions.created_at as "restrictions_created_at?",
@@ -113,12 +152,24 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             LEFT JOIN deployment_display_settings 
                 ON deployments.id = deployment_display_settings.deployment_id 
                 AND deployment_display_settings.deleted_at IS NULL
-            LEFT JOIN deployment_org_settings 
-                ON deployments.id = deployment_org_settings.deployment_id 
-                AND deployment_org_settings.deleted_at IS NULL
             LEFT JOIN deployment_restrictions
                 ON deployments.id = deployment_restrictions.deployment_id
                 AND deployment_restrictions.deleted_at IS NULL
+            LEFT JOIN deployment_b2b_settings
+                ON deployments.id = deployment_b2b_settings.deployment_id
+                AND deployment_b2b_settings.deleted_at IS NULL
+            LEFT JOIN deployment_workspace_roles AS deployment_default_workspace_creator_role
+                ON deployment_default_workspace_creator_role.id = deployment_b2b_settings.default_workspace_creator_role_id
+                AND deployment_default_workspace_creator_role.deleted_at IS NULL
+            LEFT JOIN deployment_workspace_roles AS deployment_default_workspace_member_role
+                ON deployment_default_workspace_member_role.id = deployment_b2b_settings.default_workspace_member_role_id
+                AND deployment_default_workspace_member_role.deleted_at IS NULL
+            LEFT JOIN deployment_organization_roles AS deployment_default_org_creator_role
+                ON deployment_default_org_creator_role.id = deployment_b2b_settings.default_org_creator_role_id
+                AND deployment_default_org_creator_role.deleted_at IS NULL
+            LEFT JOIN deployment_organization_roles AS deployment_default_org_member_role
+                ON deployment_default_org_member_role.id = deployment_b2b_settings.default_org_member_role_id
+                AND deployment_default_org_member_role.deleted_at IS NULL
             WHERE deployments.id = $1 AND deployments.deleted_at IS NULL
             "#,
             self.deployment_id,
@@ -143,13 +194,15 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             updated_at: row.updated_at,
             deleted_at: row.deleted_at,
             maintenance_mode: row.maintenance_mode,
-            host: row.host,
+            backend_host: row.backend_host,
+            frontend_host: row.frontend_host,
             publishable_key: row.publishable_key,
             secret: row.secret,
             mode,
             auth_settings: if row.auth_settings_id.is_some() {
                 Some(DeploymentAuthSettings {
                     id: row.auth_settings_id.unwrap(),
+
                     created_at: row.auth_settings_created_at,
                     updated_at: row.auth_settings_updated_at,
                     deleted_at: row.auth_settings_deleted_at,
@@ -167,13 +220,6 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
                     magic_link: serde_json::from_value(row.magic_link).unwrap(),
                     second_factor_policy: FromStr::from_str(&row.second_factor_policy).unwrap(),
                     first_factor: FromStr::from_str(&row.first_factor).unwrap(),
-                    second_factor: FromStr::from_str(&row.second_factor).unwrap(),
-                    alternate_first_factors: row
-                        .alternate_first_factors
-                        .map(|v| serde_json::from_value(v).unwrap_or_default()),
-                    alternate_second_factors: row
-                        .alternate_second_factors
-                        .map(|v| serde_json::from_value(v).unwrap_or_default()),
                     deployment_id: self.deployment_id,
                     multi_session_support: serde_json::from_value(row.multi_session_support)
                         .unwrap(),
@@ -209,23 +255,6 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             } else {
                 None
             },
-            org_settings: if row.org_settings_id.is_some() {
-                Some(DeploymentOrgSettings {
-                    id: row.org_settings_id.unwrap(),
-                    created_at: row.org_settings_created_at,
-                    updated_at: row.org_settings_updated_at,
-                    deleted_at: row.org_settings_deleted_at,
-                    deployment_id: self.deployment_id,
-                    enabled: row.enabled,
-                    ip_allowlist_enabled: row.ip_allowlist_enabled,
-                    max_allowed_members: row.max_allowed_members,
-                    allow_deletion: row.allow_deletion,
-                    custom_role_enabled: row.custom_role_enabled,
-                    default_role: row.default_role,
-                })
-            } else {
-                None
-            },
             restrictions: if row.restrictions_id.is_some() {
                 Some(DeploymentRestrictions {
                     id: row.restrictions_id.unwrap(),
@@ -248,6 +277,101 @@ impl Query<DeploymentWithSettings> for GetDeploymentWithSettingsQuery {
             } else {
                 None
             },
+            b2b_settings: if row.b2b_settings_id.is_some() {
+                let b2b_settings = DeploymentB2bSettings {
+                    id: row.b2b_settings_id.unwrap(),
+                    created_at: row.b2b_settings_created_at.unwrap(),
+                    updated_at: row.b2b_settings_updated_at.unwrap(),
+                    deleted_at: row.b2b_settings_deleted_at,
+                    deployment_id: self.deployment_id,
+                    organizations_enabled: row.b2b_settings_organizations_enabled.unwrap(),
+                    workspaces_enabled: row.b2b_settings_workspaces_enabled.unwrap(),
+                    ip_allowlist_per_org_enabled: row
+                        .b2b_settings_ip_allowlist_per_org_enabled
+                        .unwrap(),
+                    max_allowed_org_members: row.b2b_settings_max_allowed_org_members.unwrap(),
+                    max_allowed_workspace_members: row
+                        .b2b_settings_max_allowed_workspace_members
+                        .unwrap(),
+                    allow_org_deletion: row.b2b_settings_allow_org_deletion.unwrap(),
+                    allow_workspace_deletion: row.b2b_settings_allow_workspace_deletion.unwrap(),
+                    custom_org_role_enabled: row.b2b_settings_custom_org_role_enabled.unwrap(),
+                    custom_workspace_role_enabled: row
+                        .b2b_settings_custom_workspace_role_enabled
+                        .unwrap(),
+                    default_workspace_creator_role_id: row
+                        .b2b_settings_default_workspace_creator_role_id
+                        .unwrap(),
+                    default_workspace_member_role_id: row
+                        .b2b_settings_default_workspace_member_role_id
+                        .unwrap(),
+                    default_org_creator_role_id: row
+                        .b2b_settings_default_org_creator_role_id
+                        .unwrap(),
+                    default_org_member_role_id: row
+                        .b2b_settings_default_org_member_role_id
+                        .unwrap(),
+                    limit_org_creation_per_user: row
+                        .b2b_settings_limit_org_creation_per_user
+                        .unwrap(),
+                    limit_workspace_creation_per_org: row
+                        .b2b_settings_limit_workspace_creation_per_org
+                        .unwrap(),
+                    org_creation_per_user_count: row
+                        .b2b_settings_org_creation_per_user_count
+                        .unwrap(),
+                    workspaces_per_org_count: row.b2b_settings_workspaces_per_org_count.unwrap(),
+                    allow_users_to_create_orgs: row
+                        .b2b_settings_allow_users_to_create_orgs
+                        .unwrap(),
+                    max_orgs_per_user: row.b2b_settings_max_orgs_per_user.unwrap(),
+                };
+                Some(DeploymentB2bSettingsWithRoles {
+                    settings: b2b_settings,
+                    default_workspace_creator_role: DeploymentWorkspaceRole {
+                        id: row.b2b_settings_default_workspace_creator_role_id.unwrap(),
+                        created_at: row.default_workspace_creator_role_created_at.unwrap(),
+                        updated_at: row.default_workspace_creator_role_updated_at.unwrap(),
+                        deleted_at: row.default_workspace_creator_role_deleted_at,
+                        name: row.default_workspace_creator_role_name.unwrap_or_default(),
+                        permissions: row
+                            .default_workspace_creator_role_permissions
+                            .unwrap_or_default(),
+                        deployment_id: self.deployment_id,
+                    },
+                    default_workspace_member_role: DeploymentWorkspaceRole {
+                        id: row.b2b_settings_default_workspace_member_role_id.unwrap(),
+                        created_at: row.default_workspace_member_role_created_at.unwrap(),
+                        updated_at: row.default_workspace_member_role_updated_at.unwrap(),
+                        deleted_at: row.default_workspace_member_role_deleted_at,
+                        name: row.default_workspace_member_role_name.unwrap_or_default(),
+                        permissions: row
+                            .default_workspace_member_role_permissions
+                            .unwrap_or_default(),
+                        deployment_id: self.deployment_id,
+                    },
+                    default_org_creator_role: DeploymentOrganizationRole {
+                        id: row.b2b_settings_default_org_creator_role_id.unwrap(),
+                        created_at: row.default_org_creator_role_created_at.unwrap(),
+                        updated_at: row.default_org_creator_role_updated_at.unwrap(),
+                        deleted_at: row.default_org_creator_role_deleted_at,
+                        name: row.default_org_creator_role_name.unwrap_or_default(),
+                        permissions: row.default_org_creator_role_permissions.unwrap_or_default(),
+                        deployment_id: self.deployment_id,
+                    },
+                    default_org_member_role: DeploymentOrganizationRole {
+                        id: row.b2b_settings_default_org_member_role_id.unwrap(),
+                        created_at: row.default_org_member_role_created_at.unwrap(),
+                        updated_at: row.default_org_member_role_updated_at.unwrap(),
+                        deleted_at: row.default_org_member_role_deleted_at,
+                        name: row.default_org_member_role_name.unwrap_or_default(),
+                        permissions: row.default_org_member_role_permissions.unwrap_or_default(),
+                        deployment_id: self.deployment_id,
+                    },
+                })
+            } else {
+                None
+            },
         })
     }
 }
@@ -262,11 +386,10 @@ impl GetDeploymentSocialConnectionsQuery {
     }
 }
 
-impl Query<Vec<DeploymentSocialConnection>> for GetDeploymentSocialConnectionsQuery {
-    async fn execute(
-        &self,
-        app_state: &AppState,
-    ) -> Result<Vec<DeploymentSocialConnection>, AppError> {
+impl Query for GetDeploymentSocialConnectionsQuery {
+    type Output = Vec<DeploymentSocialConnection>;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let row = query!(
             r#"
             SELECT 
@@ -314,8 +437,10 @@ impl GetDeploymentJwtTemplatesQuery {
     }
 }
 
-impl Query<Vec<DeploymentJwtTemplate>> for GetDeploymentJwtTemplatesQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<Vec<DeploymentJwtTemplate>, AppError> {
+impl Query for GetDeploymentJwtTemplatesQuery {
+    type Output = Vec<DeploymentJwtTemplate>;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let row = query!(
             r#"
             SELECT 

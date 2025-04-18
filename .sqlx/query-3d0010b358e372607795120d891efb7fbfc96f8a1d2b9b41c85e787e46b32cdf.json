@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO deployment_organization_roles (\n                id,\n                deployment_id,\n                name,\n                permissions,\n                created_at,\n                updated_at\n            )\n            VALUES ($1, $2, $3, $4, $5, $6)\n\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "TextArray",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3d0010b358e372607795120d891efb7fbfc96f8a1d2b9b41c85e787e46b32cdf"
+}

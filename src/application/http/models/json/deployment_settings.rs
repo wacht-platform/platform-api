@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::core::models::{
-    CountryRestrictions, DeploymentRestrictionsSignUpMode, MultiSessionSupport, OauthCredentials,
-    SecondFactorPolicy, SocialConnectionProvider,
+    CountryRestrictions, CustomSigningKey, DeploymentRestrictionsSignUpMode, MultiSessionSupport,
+    OauthCredentials, SecondFactorPolicy, SocialConnectionProvider,
 };
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -154,4 +155,60 @@ pub struct DeploymentRestrictionsUpdates {
     pub session_token_lifetime: Option<i64>,
     pub session_validity_period: Option<i64>,
     pub session_inactive_timeout: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NewDeploymentJwtTemplate {
+    pub name: String,
+    pub token_lifetime: i64,
+    pub allowed_clock_skew: i64,
+    pub custom_signing_key: Option<CustomSigningKey>,
+    pub template: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PartialDeploymentJwtTemplate {
+    pub name: Option<String>,
+    pub token_lifetime: Option<i64>,
+    pub allowed_clock_skew: Option<i64>,
+    pub custom_signing_key: Option<CustomSigningKey>,
+    pub template: Option<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeploymentB2bSettingsUpdates {
+    pub organizations_enabled: Option<bool>,
+    pub workspaces_enabled: Option<bool>,
+    pub ip_allowlist_per_org_enabled: Option<bool>,
+    pub allow_users_to_create_orgs: Option<bool>,
+    pub max_allowed_org_members: Option<i64>,
+    pub max_allowed_workspace_members: Option<i64>,
+    pub allow_org_deletion: Option<bool>,
+    pub allow_workspace_deletion: Option<bool>,
+    pub custom_org_role_enabled: Option<bool>,
+    pub custom_workspace_role_enabled: Option<bool>,
+    #[serde(
+        deserialize_with = "crate::utils::serde::i64_as_string_option::deserialize",
+        default
+    )]
+    pub default_workspace_creator_role_id: Option<i64>,
+    #[serde(
+        deserialize_with = "crate::utils::serde::i64_as_string_option::deserialize",
+        default
+    )]
+    pub default_workspace_member_role_id: Option<i64>,
+    #[serde(
+        deserialize_with = "crate::utils::serde::i64_as_string_option::deserialize",
+        default
+    )]
+    pub default_org_creator_role_id: Option<i64>,
+    #[serde(
+        deserialize_with = "crate::utils::serde::i64_as_string_option::deserialize",
+        default
+    )]
+    pub default_org_member_role_id: Option<i64>,
+    pub limit_org_creation_per_user: Option<bool>,
+    pub limit_workspace_creation_per_org: Option<bool>,
+    pub org_creation_per_user_count: Option<i32>,
+    pub workspaces_per_org_count: Option<i32>,
 }

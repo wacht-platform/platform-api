@@ -1,11 +1,12 @@
 use crate::{
     application::{AppError, AppState},
     core::models::{
-        AuthFactorsEnabled, Deployment, DeploymentAuthSettings, DeploymentDisplaySettings,
-        DeploymentMode, DeploymentOrgSettings, DeploymentRestrictions, EmailSettings, FirstFactor,
-        IndividualAuthSettings, OauthCredentials, PasswordSettings, PhoneSettings,
-        ProjectWithDeployments, SecondFactor, SecondFactorPolicy, SocialConnectionProvider,
-        UsernameSettings, VerificationPolicy,
+        AuthFactorsEnabled, Deployment, DeploymentAuthSettings, DeploymentB2bSettings,
+        DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings, DeploymentMode,
+        DeploymentOrganizationRole, DeploymentRestrictions, DeploymentWorkspaceRole, EmailSettings,
+        FirstFactor, IndividualAuthSettings, OauthCredentials, PasswordSettings, PhoneSettings,
+        ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider, UsernameSettings,
+        VerificationPolicy,
     },
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
@@ -52,6 +53,19 @@ impl CreateProjectCommand {
 
         let random_part: String = random_chars.into_iter().collect();
         format!("{}_{}", prefix, random_part)
+    }
+
+    fn create_b2b_settings(&self, deployment_id: i64) -> DeploymentB2bSettingsWithRoles {
+        DeploymentB2bSettingsWithRoles {
+            settings: DeploymentB2bSettings {
+                deployment_id,
+                ..DeploymentB2bSettings::default()
+            },
+            default_workspace_creator_role: DeploymentWorkspaceRole::admin(),
+            default_workspace_member_role: DeploymentWorkspaceRole::member(),
+            default_org_creator_role: DeploymentOrganizationRole::admin(),
+            default_org_member_role: DeploymentOrganizationRole::member(),
+        }
     }
 
     fn create_auth_settings(&self, deployment_id: i64) -> DeploymentAuthSettings {
@@ -117,14 +131,12 @@ impl CreateProjectCommand {
             phone_number: phone_settings,
             username: username_settings,
             first_factor,
-            alternate_first_factors: Some(alternate_first_factors),
             first_name: first_name_settings,
             last_name: last_name_settings,
             password: password_settings,
             auth_factors_enabled,
             verification_policy,
             second_factor_policy: SecondFactorPolicy::None,
-            second_factor: SecondFactor::None,
             ..DeploymentAuthSettings::default()
         }
     }
@@ -142,13 +154,6 @@ impl CreateProjectCommand {
             sign_in_page_url: format!("{}/sign-in", frontend_host),
             sign_up_page_url: format!("{}/sign-up", frontend_host),
             ..DeploymentDisplaySettings::default()
-        }
-    }
-
-    fn create_org_settings(&self, deployment_id: i64) -> DeploymentOrgSettings {
-        DeploymentOrgSettings {
-            deployment_id,
-            ..DeploymentOrgSettings::default()
         }
     }
 
@@ -207,11 +212,12 @@ impl Command for CreateProjectCommand {
         .await?;
 
         let secret_key = Self::generate_key("sk");
-        let host = format!("{}.backend-api.services", project_id);
+        let backend_host = format!("{}.backend-api.services", project_id);
+        let frontend_host = format!("{}.watch.tech", project_id);
         let mut publishable_key = String::from("pk_test_");
 
-        let base64_host = BASE64_STANDARD.encode(format!("https://{}", host));
-        publishable_key.push_str(&base64_host);
+        let base64_backend_host = BASE64_STANDARD.encode(format!("https://{}", backend_host));
+        publishable_key.push_str(&base64_backend_host);
 
         let deployment_row = sqlx::query!(
             r#"
@@ -219,23 +225,29 @@ impl Command for CreateProjectCommand {
                 id,
                 project_id, 
                 mode, 
-                host, 
+                backend_host, 
+                frontend_host, 
                 publishable_key, 
                 secret, 
-                maintenance_mode
+                maintenance_mode,
+                created_at,
+                updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id, created_at, updated_at, deleted_at, 
-                     maintenance_mode, host, publishable_key, secret, 
+                     maintenance_mode, backend_host, frontend_host, publishable_key, secret, 
                      project_id, mode
             "#,
             app_state.sf.next_id()? as i64,
             project_row.id,
             "staging",
-            host,
+            backend_host,
+            frontend_host,
             publishable_key,
             secret_key,
             false,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
         )
         .fetch_one(&mut *tx)
         .await?;
@@ -251,16 +263,18 @@ impl Command for CreateProjectCommand {
                 phone_number,
                 username,
                 first_factor,
-                alternate_first_factors,
                 first_name,
                 last_name,
                 password,
                 auth_factors_enabled,
                 verification_policy,
                 second_factor_policy,
-                second_factor,
                 passkey,
                 magic_link,
+                multi_session_support,
+                session_token_lifetime,
+                session_validity_period,
+                session_inactive_timeout,
                 created_at,
                 updated_at
             )
@@ -282,7 +296,9 @@ impl Command for CreateProjectCommand {
                 $15,
                 $16,
                 $17,
-                $18
+                $18,
+                $19,
+                $20
             )
             "#,
             app_state.sf.next_id()? as i64,
@@ -294,12 +310,6 @@ impl Command for CreateProjectCommand {
             serde_json::to_value(&auth_settings.username)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             auth_settings.first_factor.to_string(),
-            &auth_settings
-                .alternate_first_factors
-                .unwrap_or_default()
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<String>>(),
             serde_json::to_value(&auth_settings.first_name)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.last_name)
@@ -311,11 +321,15 @@ impl Command for CreateProjectCommand {
             serde_json::to_value(&auth_settings.verification_policy)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             auth_settings.second_factor_policy.to_string(),
-            auth_settings.second_factor.to_string(),
             serde_json::to_value(&auth_settings.passkey)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
             serde_json::to_value(&auth_settings.magic_link)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.multi_session_support)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            auth_settings.session_token_lifetime,
+            auth_settings.session_validity_period,
+            auth_settings.session_inactive_timeout,
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
@@ -416,43 +430,159 @@ impl Command for CreateProjectCommand {
         .execute(&mut *tx)
         .await?;
 
-        let org_settings = self.create_org_settings(deployment_row.id);
+        let mut b2b_settings = self.create_b2b_settings(deployment_row.id);
 
-        sqlx::query!(
+        let default_workspace_creator_role = sqlx::query!(
             r#"
-            INSERT INTO deployment_org_settings (
+            INSERT INTO deployment_workspace_roles (
                 id,
                 deployment_id,
-                enabled,
-                ip_allowlist_enabled,
-                max_allowed_members,
-                allow_deletion,
-                custom_role_enabled,
-                default_role,
+                name,
+                permissions,
                 created_at,
                 updated_at
             )
-            VALUES (
-                $1,
-                $2,
-                $3,
-                $4,
-                $5,
-                $6,
-                $7,
-                $8,
-                $9,
-                $10
-            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+
+            RETURNING id
             "#,
             app_state.sf.next_id()? as i64,
-            org_settings.deployment_id,
-            org_settings.enabled,
-            org_settings.ip_allowlist_enabled,
-            org_settings.max_allowed_members,
-            org_settings.allow_deletion,
-            org_settings.custom_role_enabled,
-            org_settings.default_role,
+            deployment_row.id,
+            b2b_settings.default_workspace_creator_role.name,
+            &b2b_settings.default_workspace_creator_role.permissions,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let default_workspace_member_role = sqlx::query!(
+            r#"
+            INSERT INTO deployment_workspace_roles (
+                id,
+                deployment_id,
+                name,
+                permissions,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+
+            RETURNING id
+            "#,
+            app_state.sf.next_id()? as i64,
+            deployment_row.id,
+            b2b_settings.default_workspace_member_role.name,
+            &b2b_settings.default_workspace_member_role.permissions,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let default_org_creator_role = sqlx::query!(
+            r#"
+            INSERT INTO deployment_organization_roles (
+                id,
+                deployment_id,
+                name,
+                permissions,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+
+            RETURNING id
+            "#,
+            app_state.sf.next_id()? as i64,
+            deployment_row.id,
+            b2b_settings.default_org_creator_role.name,
+            &b2b_settings.default_org_creator_role.permissions,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let default_org_member_role = sqlx::query!(
+            r#"
+            INSERT INTO deployment_organization_roles (
+                id,
+                deployment_id,
+                name,
+                permissions,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+
+            RETURNING id
+            "#,
+            app_state.sf.next_id()? as i64,
+            deployment_row.id,
+            b2b_settings.default_org_member_role.name,
+            &b2b_settings.default_org_member_role.permissions,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        b2b_settings.default_workspace_creator_role.id = default_workspace_creator_role.id;
+        b2b_settings.default_workspace_member_role.id = default_workspace_member_role.id;
+        b2b_settings.default_org_creator_role.id = default_org_creator_role.id;
+        b2b_settings.default_org_member_role.id = default_org_member_role.id;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO deployment_b2b_settings (
+                id,
+                deployment_id,
+                organizations_enabled,
+                workspaces_enabled,
+                ip_allowlist_per_org_enabled,
+                max_allowed_org_members,
+                max_allowed_workspace_members,
+                allow_org_deletion,
+                allow_workspace_deletion,
+                custom_org_role_enabled,
+                custom_workspace_role_enabled,
+                default_workspace_creator_role_id,
+                default_workspace_member_role_id,
+                default_org_creator_role_id,
+                default_org_member_role_id,
+                limit_org_creation_per_user,
+                limit_workspace_creation_per_org,
+                org_creation_per_user_count,
+                workspaces_per_org_count,
+                allow_users_to_create_orgs,
+                max_orgs_per_user,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+            "#,
+            app_state.sf.next_id()? as i64,
+            deployment_row.id,
+            b2b_settings.settings.organizations_enabled,
+            b2b_settings.settings.workspaces_enabled,
+            b2b_settings.settings.ip_allowlist_per_org_enabled,
+            b2b_settings.settings.max_allowed_org_members,
+            b2b_settings.settings.max_allowed_workspace_members,
+            b2b_settings.settings.allow_org_deletion,
+            b2b_settings.settings.allow_workspace_deletion,
+            b2b_settings.settings.custom_org_role_enabled,
+            b2b_settings.settings.custom_workspace_role_enabled,
+            b2b_settings.default_workspace_creator_role.id,
+            b2b_settings.default_workspace_member_role.id,
+            b2b_settings.default_org_creator_role.id,
+            b2b_settings.default_org_member_role.id,
+            b2b_settings.settings.limit_org_creation_per_user,
+            b2b_settings.settings.limit_workspace_creation_per_org,
+            b2b_settings.settings.org_creation_per_user_count,
+            b2b_settings.settings.workspaces_per_org_count,
+            b2b_settings.settings.allow_users_to_create_orgs,
+            b2b_settings.settings.max_orgs_per_user,
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
@@ -460,13 +590,13 @@ impl Command for CreateProjectCommand {
         .await?;
 
         let social_providers = [
-            "google",
-            "apple",
-            "facebook",
-            "github",
-            "microsoft",
-            "discord",
-            "linkedin",
+            "google_oauth",
+            "apple_oauth",
+            "facebook_oauth",
+            "github_oauth",
+            "microsoft_oauth",
+            "discord_oauth",
+            "linkedin_oauth",
         ];
 
         let empty_credentials = serde_json::to_value(OauthCredentials::default())
@@ -517,7 +647,8 @@ impl Command for CreateProjectCommand {
             updated_at: deployment_row.updated_at,
             deleted_at: deployment_row.deleted_at,
             maintenance_mode: deployment_row.maintenance_mode,
-            host: deployment_row.host,
+            backend_host: deployment_row.backend_host,
+            frontend_host: deployment_row.frontend_host,
             publishable_key: deployment_row.publishable_key,
             secret: deployment_row.secret,
             project_id: deployment_row.project_id,
@@ -608,7 +739,7 @@ impl Command for DeleteProjectCommand {
         for deployment in &deployments {
             sqlx::query!(
                 r#"
-                UPDATE deployment_org_settings
+                UPDATE deployment_b2b_settings
                 SET deleted_at = $1
                 WHERE deployment_id = $2 AND deleted_at IS NULL
                 "#,

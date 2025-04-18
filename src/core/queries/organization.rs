@@ -65,8 +65,10 @@ impl DeploymentOrganizationListQuery {
     }
 }
 
-impl Query<Vec<Organization>> for DeploymentOrganizationListQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<Vec<Organization>, AppError> {
+impl Query for DeploymentOrganizationListQuery {
+    type Output = Vec<Organization>;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let mut query_str = String::from(
             r#"
             SELECT 

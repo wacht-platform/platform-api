@@ -19,8 +19,7 @@ pub async fn get_projects(
 ) -> ApiResult<PaginatedResponse<ProjectWithDeployments>> {
     let projects = GetProjectsWithDeploymentQuery::new(0)
         .execute(&app_state)
-        .await
-        .unwrap();
+        .await?;
 
     Ok(PaginatedResponse {
         data: projects,
@@ -46,10 +45,12 @@ pub async fn create_project(
         let content_type = field.content_type().unwrap_or_default().to_string();
         let value = field.bytes().await.unwrap().to_vec();
 
+        let val_str = String::from_utf8_lossy(&value);
+
         if field_name == "name" {
             name = String::from_utf8_lossy(&value).into();
         } else if field_name == "methods" {
-            methods.push(String::from_utf8_lossy(&value).into());
+            methods.push(val_str.into());
         } else if field_name == "logo" && content_type == "image/png" {
             logo_buffer = value;
         }
@@ -59,11 +60,11 @@ pub async fn create_project(
         return Err((StatusCode::BAD_REQUEST, "Name is required").into());
     }
 
-    let project = CreateProjectCommand::new(name, logo_buffer, methods)
+    CreateProjectCommand::new(name, logo_buffer, methods)
         .execute(&app_state)
-        .await?;
-
-    Ok(project.into())
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
 }
 
 pub async fn delete_project(

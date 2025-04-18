@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO deployments (\n                id,\n                project_id, \n                mode, \n                host, \n                publishable_key, \n                secret, \n                maintenance_mode\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            RETURNING id, created_at, updated_at, deleted_at, \n                     maintenance_mode, host, publishable_key, secret, \n                     project_id, mode\n            ",
+  "query": "\n            INSERT INTO deployments (\n                id,\n                project_id, \n                mode, \n                backend_host, \n                frontend_host, \n                publishable_key, \n                secret, \n                maintenance_mode,\n                created_at,\n                updated_at\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            RETURNING id, created_at, updated_at, deleted_at, \n                     maintenance_mode, backend_host, frontend_host, publishable_key, secret, \n                     project_id, mode\n            ",
   "describe": {
     "columns": [
       {
@@ -30,26 +30,31 @@
       },
       {
         "ordinal": 5,
-        "name": "host",
+        "name": "backend_host",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "publishable_key",
+        "name": "frontend_host",
         "type_info": "Text"
       },
       {
         "ordinal": 7,
-        "name": "secret",
+        "name": "publishable_key",
         "type_info": "Text"
       },
       {
         "ordinal": 8,
+        "name": "secret",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
         "name": "project_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "mode",
         "type_info": "Text"
       }
@@ -62,7 +67,10 @@
         "Text",
         "Text",
         "Text",
-        "Bool"
+        "Text",
+        "Bool",
+        "Timestamptz",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -75,8 +83,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "7b0d2bd5eaf88e87d0cbfe84428ee7040479777a188690d1ad22f43ef39b6a05"
+  "hash": "5e966affa25d71591ae9a9045f1e56103262edc294a0637de7ed60c60b691d1e"
 }

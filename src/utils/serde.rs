@@ -17,6 +17,34 @@ pub mod i64_as_string {
     }
 }
 
+pub mod i64_as_string_option {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    use super::i64_as_string;
+
+    pub fn serialize<S>(value: &Option<i64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(value) => i64_as_string::serialize(value, serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s.parse::<i64>().is_ok() {
+            Ok(Some(s.parse::<i64>().unwrap()))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 pub mod enum_from_str {
     use serde::{Deserialize, Deserializer};
     use std::{fmt::Display, str::FromStr};

@@ -325,13 +325,10 @@ pub struct DeploymentAuthSettings {
     pub verification_policy: VerificationPolicy,
     pub second_factor_policy: SecondFactorPolicy,
     pub first_factor: FirstFactor,
-    pub second_factor: SecondFactor,
     pub multi_session_support: MultiSessionSupport,
     pub session_token_lifetime: i64,
     pub session_validity_period: i64,
     pub session_inactive_timeout: i64,
-    pub alternate_first_factors: Option<Vec<FirstFactor>>,
-    pub alternate_second_factors: Option<Vec<SecondFactor>>,
     pub deployment_id: i64,
 }
 
@@ -358,9 +355,6 @@ impl Default for DeploymentAuthSettings {
             verification_policy: VerificationPolicy::default(),
             second_factor_policy: SecondFactorPolicy::Optional,
             first_factor: FirstFactor::EmailPassword,
-            second_factor: SecondFactor::Authenticator,
-            alternate_first_factors: Some(vec![]),
-            alternate_second_factors: Some(vec![]),
             deployment_id: 0,
         }
     }

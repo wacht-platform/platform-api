@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    DeploymentAuthSettings, DeploymentDisplaySettings, DeploymentOrgSettings,
+    DeploymentAuthSettings, DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings,
     DeploymentRestrictions,
 };
 
@@ -31,7 +31,8 @@ pub struct Deployment {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub maintenance_mode: bool,
-    pub host: String,
+    pub backend_host: String,
+    pub frontend_host: String,
     pub publishable_key: String,
     pub secret: String,
     #[serde(with = "crate::utils::serde::i64_as_string")]
@@ -47,12 +48,13 @@ pub struct DeploymentWithSettings {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub maintenance_mode: bool,
-    pub host: String,
+    pub backend_host: String,
+    pub frontend_host: String,
     pub publishable_key: String,
     pub secret: String,
     pub mode: DeploymentMode,
     pub auth_settings: Option<DeploymentAuthSettings>,
     pub display_settings: Option<DeploymentDisplaySettings>,
-    pub org_settings: Option<DeploymentOrgSettings>,
+    pub b2b_settings: Option<DeploymentB2bSettingsWithRoles>,
     pub restrictions: Option<DeploymentRestrictions>,
 }

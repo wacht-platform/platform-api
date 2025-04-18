@@ -4,12 +4,14 @@ use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CustomSigningKey {
+    pub enabled: bool,
     pub key: String,
     pub algorithm: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeploymentJwtTemplate {
+    #[serde(with = "crate::utils::serde::i64_as_string")]
     pub id: i64,
     pub name: String,
     pub token_lifetime: i64,
