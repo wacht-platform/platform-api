@@ -1,10 +1,11 @@
 use crate::{
     application::{AppError, AppState},
     core::models::{
-        AuthFactorsEnabled, Deployment, DeploymentAuthSettings, DeploymentB2bSettings,
-        DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings, DeploymentMode,
-        DeploymentOrganizationRole, DeploymentRestrictions, DeploymentWorkspaceRole, EmailSettings,
-        FirstFactor, IndividualAuthSettings, OauthCredentials, PasswordSettings, PhoneSettings,
+        AuthFactorsEnabled, DarkModeSettings, Deployment, DeploymentAuthSettings,
+        DeploymentB2bSettings, DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings,
+        DeploymentMode, DeploymentOrganizationRole, DeploymentRestrictions,
+        DeploymentWorkspaceRole, EmailSettings, FirstFactor, IndividualAuthSettings,
+        LightModeSettings, OauthCredentials, PasswordSettings, PhoneSettings,
         ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider, UsernameSettings,
         VerificationPolicy,
     },
@@ -153,6 +154,13 @@ impl CreateProjectCommand {
             after_sign_out_one_page_url: format!("{}/account-picker", frontend_host),
             sign_in_page_url: format!("{}/sign-in", frontend_host),
             sign_up_page_url: format!("{}/sign-up", frontend_host),
+            dark_mode_settings: DarkModeSettings::default(),
+            light_mode_settings: LightModeSettings::default(),
+            organization_profile_url: format!("{}/organization", frontend_host),
+            create_organization_url: format!("{}/create-organization", frontend_host),
+            user_profile_url: format!("{}/me", frontend_host),
+            use_initials_for_organization_profile_image: true,
+            use_initials_for_user_profile_image: true,
             ..DeploymentDisplaySettings::default()
         }
     }
@@ -347,9 +355,6 @@ impl Command for CreateProjectCommand {
                 id,
                 deployment_id,
                 app_name,
-                primary_color,
-                button_config,
-                input_config,
                 tos_page_url,
                 sign_in_page_url,
                 sign_up_page_url,
@@ -360,19 +365,27 @@ impl Command for CreateProjectCommand {
                 privacy_policy_url,
                 signup_terms_statement,
                 signup_terms_statement_shown,
+                light_mode_settings,
+                dark_mode_settings,
+                after_logo_click_url,
+                organization_profile_url,
+                create_organization_url,
+                default_user_profile_image_url,
+                default_organization_profile_image_url,
+                use_initials_for_user_profile_image,
+                use_initials_for_organization_profile_image,
+                after_signup_redirect_url,
+                after_signin_redirect_url,
+                user_profile_url,
+                after_create_organization_redirect_url,
                 created_at,
                 updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
             "#,
             app_state.sf.next_id()? as i64,
             display_settings.deployment_id,
             display_settings.app_name,
-            display_settings.primary_color,
-            serde_json::to_value(&display_settings.button_config)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
-            serde_json::to_value(&display_settings.input_config)
-                .map_err(|e| AppError::Serialization(e.to_string()))?,
             display_settings.tos_page_url,
             display_settings.sign_in_page_url,
             display_settings.sign_up_page_url,
@@ -383,11 +396,26 @@ impl Command for CreateProjectCommand {
             display_settings.privacy_policy_url,
             display_settings.signup_terms_statement,
             display_settings.signup_terms_statement_shown,
+            serde_json::to_value(&display_settings.light_mode_settings)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&display_settings.dark_mode_settings)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            display_settings.after_logo_click_url,
+            display_settings.organization_profile_url,
+            display_settings.create_organization_url,
+            display_settings.default_user_profile_image_url,
+            display_settings.default_organization_profile_image_url,
+            display_settings.use_initials_for_user_profile_image,
+            display_settings.use_initials_for_organization_profile_image,
+            display_settings.after_signup_redirect_url,
+            display_settings.after_signin_redirect_url,
+            display_settings.user_profile_url,
+            display_settings.after_create_organization_redirect_url,
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
         .execute(&mut *tx)
-        .await?;
+        .await.unwrap();
 
         let restrictions = self.create_restrictions(deployment_row.id);
 

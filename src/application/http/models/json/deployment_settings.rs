@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::core::models::{
-    CountryRestrictions, CustomSigningKey, DeploymentRestrictionsSignUpMode, MultiSessionSupport,
-    OauthCredentials, SecondFactorPolicy, SocialConnectionProvider,
+    CountryRestrictions, CustomSigningKey, DarkModeSettings, DeploymentRestrictionsSignUpMode,
+    LightModeSettings, MultiSessionSupport, OauthCredentials, SecondFactorPolicy,
+    SocialConnectionProvider,
 };
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -211,4 +212,32 @@ pub struct DeploymentB2bSettingsUpdates {
     pub limit_workspace_creation_per_org: Option<bool>,
     pub org_creation_per_user_count: Option<i32>,
     pub workspaces_per_org_count: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct DeploymentDisplaySettingsUpdates {
+    pub app_name: Option<String>,
+    pub tos_page_url: Option<String>,
+    pub sign_in_page_url: Option<String>,
+    pub sign_up_page_url: Option<String>,
+    pub after_sign_out_one_page_url: Option<String>,
+    pub after_sign_out_all_page_url: Option<String>,
+    pub favicon_image_url: Option<String>,
+    pub logo_image_url: Option<String>,
+    pub privacy_policy_url: Option<String>,
+    pub signup_terms_statement: Option<String>,
+    pub signup_terms_statement_shown: Option<bool>,
+    pub light_mode_settings: Option<LightModeSettings>,
+    pub dark_mode_settings: Option<DarkModeSettings>,
+    pub after_logo_click_url: Option<String>,
+    pub organization_profile_url: Option<String>,
+    pub create_organization_url: Option<String>,
+    pub default_user_profile_image_url: Option<String>,
+    pub default_organization_profile_image_url: Option<String>,
+    pub use_initials_for_user_profile_image: Option<bool>,
+    pub use_initials_for_organization_profile_image: Option<bool>,
+    pub after_signup_redirect_url: Option<String>,
+    pub after_signin_redirect_url: Option<String>,
+    pub user_profile_url: Option<String>,
+    pub after_create_organization_redirect_url: Option<String>,
 }

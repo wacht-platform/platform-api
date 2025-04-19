@@ -61,6 +61,10 @@ fn deployment_routes() -> Router<AppState> {
             patch(api::deployment::settings::update_deployment_authetication_settings),
         )
         .route(
+            "/settings/display-settings",
+            patch(api::deployment::settings::update_deployment_display_settings),
+        )
+        .route(
             "/restrictions",
             patch(api::deployment::settings::update_deployment_restrictions),
         )
@@ -75,6 +79,10 @@ fn deployment_routes() -> Router<AppState> {
         .route(
             "/settings/b2b-settings",
             patch(api::deployment::b2b::update_deployment_b2b_settings),
+        )
+        .route(
+            "/upload/{image_type}",
+            post(api::deployment::upload::upload_image),
         );
 
     Router::new().nest("/deployments/{deployment_id}", routes)

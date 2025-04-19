@@ -1,13 +1,14 @@
 use crate::{
     application::{
-        ApiResult, AppState, DeploymentAuthSettingsUpdates, DeploymentRestrictionsUpdates,
-        NewDeploymentJwtTemplate, PaginatedResponse, PartialDeploymentJwtTemplate,
+        ApiResult, AppState, DeploymentAuthSettingsUpdates, DeploymentDisplaySettingsUpdates,
+        DeploymentRestrictionsUpdates, NewDeploymentJwtTemplate, PaginatedResponse,
+        PartialDeploymentJwtTemplate,
     },
     core::{
         commands::{
             Command, CreateDeploymentJwtTemplateCommand, DeleteDeploymentJwtTemplateCommand,
-            UpdateDeploymentAuthSettingsCommand, UpdateDeploymentJwtTemplateCommand,
-            UpdateDeploymentRestrictionsCommand,
+            UpdateDeploymentAuthSettingsCommand, UpdateDeploymentDisplaySettingsCommand,
+            UpdateDeploymentJwtTemplateCommand, UpdateDeploymentRestrictionsCommand,
         },
         models::{DeploymentJwtTemplate, DeploymentWithSettings},
         queries::{
@@ -97,6 +98,18 @@ pub async fn delete_deployment_jwt_template(
     Path((_, id)): Path<(i64, i64)>,
 ) -> ApiResult<()> {
     DeleteDeploymentJwtTemplateCommand::new(id)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+pub async fn update_deployment_display_settings(
+    State(app_state): State<AppState>,
+    Path(deployment_id): Path<i64>,
+    Json(settings): Json<DeploymentDisplaySettingsUpdates>,
+) -> ApiResult<()> {
+    UpdateDeploymentDisplaySettingsCommand::new(deployment_id, settings)
         .execute(&app_state)
         .await
         .map(Into::into)

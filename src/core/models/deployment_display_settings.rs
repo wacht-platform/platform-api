@@ -2,35 +2,31 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ButtonConfig {
-    pub background_color: String,
-    pub text_color: String,
-    pub border_radius: i32,
+pub struct LightModeSettings {
+    pub primary_color: Option<String>,
+    pub background_color: Option<String>,
 }
 
-impl Default for ButtonConfig {
+impl Default for LightModeSettings {
     fn default() -> Self {
         Self {
-            background_color: "#0066FF".to_string(),
-            text_color: "#FFFFFF".to_string(),
-            border_radius: 4,
+            primary_color: Some("#6366F1".to_string()),
+            background_color: Some("#FFFFFF".to_string()),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct InputConfig {
-    pub placeholder: String,
-    pub text_color: String,
-    pub border_color: String,
+pub struct DarkModeSettings {
+    pub primary_color: Option<String>,
+    pub background_color: Option<String>,
 }
 
-impl Default for InputConfig {
+impl Default for DarkModeSettings {
     fn default() -> Self {
         Self {
-            placeholder: "".to_string(),
-            text_color: "#000000".to_string(),
-            border_color: "#E5E7EB".to_string(),
+            primary_color: Some("#2A2A2A".to_string()),
+            background_color: Some("#8B94FF".to_string()),
         }
     }
 }
@@ -44,7 +40,6 @@ pub struct DeploymentDisplaySettings {
     pub deleted_at: Option<DateTime<Utc>>,
     pub deployment_id: i64,
     pub app_name: String,
-    pub primary_color: String,
     pub tos_page_url: String,
     pub sign_in_page_url: String,
     pub sign_up_page_url: String,
@@ -55,8 +50,19 @@ pub struct DeploymentDisplaySettings {
     pub privacy_policy_url: String,
     pub signup_terms_statement: String,
     pub signup_terms_statement_shown: bool,
-    pub button_config: ButtonConfig,
-    pub input_config: InputConfig,
+    pub light_mode_settings: LightModeSettings,
+    pub dark_mode_settings: DarkModeSettings,
+    pub after_logo_click_url: String,
+    pub organization_profile_url: String,
+    pub create_organization_url: String,
+    pub default_user_profile_image_url: String,
+    pub default_organization_profile_image_url: String,
+    pub use_initials_for_user_profile_image: bool,
+    pub use_initials_for_organization_profile_image: bool,
+    pub after_signup_redirect_url: String,
+    pub after_signin_redirect_url: String,
+    pub user_profile_url: String,
+    pub after_create_organization_redirect_url: String,
 }
 
 impl Default for DeploymentDisplaySettings {
@@ -68,7 +74,6 @@ impl Default for DeploymentDisplaySettings {
             deleted_at: None,
             deployment_id: 0,
             app_name: "".to_string(),
-            primary_color: "#0066FF".to_string(),
             tos_page_url: "".to_string(),
             sign_in_page_url: "".to_string(),
             sign_up_page_url: "".to_string(),
@@ -80,8 +85,19 @@ impl Default for DeploymentDisplaySettings {
             signup_terms_statement: "I agree to the Terms of Service and Privacy Policy"
                 .to_string(),
             signup_terms_statement_shown: true,
-            button_config: ButtonConfig::default(),
-            input_config: InputConfig::default(),
+            light_mode_settings: LightModeSettings::default(),
+            dark_mode_settings: DarkModeSettings::default(),
+            after_logo_click_url: "".to_string(),
+            organization_profile_url: "".to_string(),
+            create_organization_url: "".to_string(),
+            default_user_profile_image_url: "".to_string(),
+            default_organization_profile_image_url: "".to_string(),
+            use_initials_for_user_profile_image: true,
+            use_initials_for_organization_profile_image: true,
+            after_signup_redirect_url: "".to_string(),
+            after_signin_redirect_url: "".to_string(),
+            user_profile_url: "".to_string(),
+            after_create_organization_redirect_url: "".to_string(),
         }
     }
 }
