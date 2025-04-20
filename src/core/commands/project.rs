@@ -9,8 +9,10 @@ use crate::{
         ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider, UsernameSettings,
         VerificationPolicy,
     },
+    utils::name::generate_random_name,
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
+use redis::AsyncCommands;
 use std::{
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -188,9 +190,7 @@ impl Command for CreateProjectCommand {
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let mut tx = app_state.db_pool.begin().await?;
-
         let project_id = app_state.sf.next_id()? as i64;
-
         let image_url: String;
 
         if self.has_logo {
@@ -220,8 +220,18 @@ impl Command for CreateProjectCommand {
         .await?;
 
         let secret_key = Self::generate_key("sk");
-        let backend_host = format!("{}.backend-api.services", project_id);
-        let frontend_host = format!("{}.watch.tech", project_id);
+        let random_name = generate_random_name();
+        let count: i64 = app_state
+            .redis_client
+            .get_multiplexed_tokio_connection()
+            .await?
+            .incr(format!("project_count:{}", random_name), 1)
+            .await?;
+
+        let hostname = format!("{}-{}", random_name, count);
+
+        let backend_host = format!("{}.backend-api.services", hostname);
+        let frontend_host = format!("{}.watch.tech", hostname);
         let mut publishable_key = String::from("pk_test_");
 
         let base64_backend_host = BASE64_STANDARD.encode(format!("https://{}", backend_host));
@@ -346,7 +356,7 @@ impl Command for CreateProjectCommand {
 
         let display_settings = self.create_display_settings(
             deployment_row.id,
-            format!("https://{}.watch.tech", project_id),
+            format!("https://{}.watch.tech", hostname),
         );
 
         sqlx::query!(

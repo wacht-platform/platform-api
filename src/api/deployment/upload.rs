@@ -76,21 +76,21 @@ pub async fn upload_image(
     let file_path = match image_type.as_str() {
         "logo" => {
             updates.logo_image_url = Some(format!(
-                "deployments/{}/logo.{}",
+                "https://cdn.wacht.services/deployments/{}/logo.{}",
                 deployment_id, file_extension
             ));
             format!("deployments/{}/logo.{}", deployment_id, file_extension)
         }
         "favicon" => {
             updates.favicon_image_url = Some(format!(
-                "deployments/{}/favicon.{}",
+                "https://cdn.wacht.services/deployments/{}/favicon.{}",
                 deployment_id, file_extension
             ));
             format!("deployments/{}/favicon.{}", deployment_id, file_extension)
         }
         "user-profile" => {
             updates.default_user_profile_image_url = Some(format!(
-                "deployments/{}/user-profile.{}",
+                "https://cdn.wacht.services/deployments/{}/user-profile.{}",
                 deployment_id, file_extension
             ));
             format!(
@@ -100,7 +100,7 @@ pub async fn upload_image(
         }
         "org-profile" => {
             updates.default_organization_profile_image_url = Some(format!(
-                "deployments/{}/org-profile.{}",
+                "https://cdn.wacht.services/deployments/{}/org-profile.{}",
                 deployment_id, file_extension
             ));
             format!(

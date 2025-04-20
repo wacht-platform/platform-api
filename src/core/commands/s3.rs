@@ -1,3 +1,4 @@
+use aws_sdk_cloudfront::types::{InvalidationBatch, Paths};
 use aws_sdk_s3::primitives::{ByteStream, SdkBody};
 
 use crate::application::{AppError, AppState};

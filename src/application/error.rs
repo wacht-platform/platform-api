@@ -47,3 +47,9 @@ impl From<serde_json::Error> for AppError {
         AppError::Serialization(error.to_string())
     }
 }
+
+impl From<redis::RedisError> for AppError {
+    fn from(error: redis::RedisError) -> Self {
+        AppError::Internal(error.to_string())
+    }
+}
