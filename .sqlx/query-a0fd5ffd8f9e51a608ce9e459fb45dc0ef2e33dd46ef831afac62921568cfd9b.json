@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT password_remove_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "password_remove_template",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a0fd5ffd8f9e51a608ce9e459fb45dc0ef2e33dd46ef831afac62921568cfd9b"
+}

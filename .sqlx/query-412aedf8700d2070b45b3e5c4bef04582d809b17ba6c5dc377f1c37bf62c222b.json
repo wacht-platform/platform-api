@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT waitlist_signup_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "waitlist_signup_template",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "412aedf8700d2070b45b3e5c4bef04582d809b17ba6c5dc377f1c37bf62c222b"
+}

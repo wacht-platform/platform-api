@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT primary_email_change_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "primary_email_change_template",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "811179782e97a5d808bee93bc0a564676c2608e34a7eea38f7feb5bd4720e2e3"
+}

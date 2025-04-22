@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT organization_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "organization_invite_template",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fefad98a583e96da69e8471ce2e1fadf8e26b39be70c2dea2f06102e9c18820f"
+}

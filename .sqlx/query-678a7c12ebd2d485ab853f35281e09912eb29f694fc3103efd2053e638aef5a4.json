@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO deployments (\n                id,\n                project_id, \n                mode, \n                backend_host, \n                frontend_host, \n                publishable_key, \n                secret, \n                maintenance_mode,\n                created_at,\n                updated_at\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            RETURNING id, created_at, updated_at, deleted_at, \n                     maintenance_mode, backend_host, frontend_host, publishable_key, secret, \n                     project_id, mode\n            ",
+  "query": "\n            INSERT INTO deployments (\n                id,\n                project_id, \n                mode, \n                backend_host, \n                frontend_host, \n                publishable_key, \n                maintenance_mode,\n                mail_from_host,\n                created_at,\n                updated_at\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n            RETURNING id, created_at, updated_at, deleted_at, \n                     maintenance_mode, backend_host, frontend_host, publishable_key, project_id, mode, mail_from_host\n            ",
   "describe": {
     "columns": [
       {
@@ -45,17 +45,17 @@
       },
       {
         "ordinal": 8,
-        "name": "secret",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 9,
         "name": "project_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "mode",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "mail_from_host",
         "type_info": "Text"
       }
     ],
@@ -67,8 +67,8 @@
         "Text",
         "Text",
         "Text",
-        "Text",
         "Bool",
+        "Text",
         "Timestamptz",
         "Timestamptz"
       ]
@@ -87,5 +87,5 @@
       false
     ]
   },
-  "hash": "5e966affa25d71591ae9a9045f1e56103262edc294a0637de7ed60c60b691d1e"
+  "hash": "678a7c12ebd2d485ab853f35281e09912eb29f694fc3103efd2053e638aef5a4"
 }

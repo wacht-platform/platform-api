@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT sign_in_from_new_device_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sign_in_from_new_device_template",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bb96d0e0dfbbafc2c308fe77667326bee3097b9b0f7761f208f27216ed1c6032"
+}
