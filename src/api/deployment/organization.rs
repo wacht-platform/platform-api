@@ -1,5 +1,9 @@
 use crate::{
-    application::{ApiResult, AppState, OrganizationListQueryParams, PaginatedResponse},
+    application::{
+        AppState,
+        query::OrganizationListQueryParams,
+        response::{ApiResult, PaginatedResponse},
+    },
     core::{
         models::Organization,
         queries::{DeploymentOrganizationListQuery, Query},

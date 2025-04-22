@@ -3,31 +3,28 @@ use crate::{
     core::models::{
         AuthFactorsEnabled, DarkModeSettings, Deployment, DeploymentAuthSettings,
         DeploymentB2bSettings, DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings,
-        DeploymentMode, DeploymentOrganizationRole, DeploymentRestrictions,
-        DeploymentWorkspaceRole, EmailSettings, FirstFactor, IndividualAuthSettings,
-        LightModeSettings, OauthCredentials, PasswordSettings, PhoneSettings,
-        ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider, UsernameSettings,
-        VerificationPolicy,
+        DeploymentEmailTemplate, DeploymentMode, DeploymentOrganizationRole,
+        DeploymentRestrictions, DeploymentSmsTemplate, DeploymentWorkspaceRole, EmailSettings,
+        FirstFactor, IndividualAuthSettings, LightModeSettings, OauthCredentials, PasswordSettings,
+        PhoneSettings, ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider,
+        UsernameSettings, VerificationPolicy,
     },
     utils::name::generate_random_name,
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
 use redis::AsyncCommands;
-use std::{
-    str::FromStr,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::str::FromStr;
 
 use super::{Command, UploadToCdnCommand};
 
-pub struct CreateProjectCommand {
+pub struct CreateProjectWithStagingDeploymentCommand {
     name: String,
     logo: Vec<u8>,
     has_logo: bool,
     auth_methods: Vec<String>,
 }
 
-impl CreateProjectCommand {
+impl CreateProjectWithStagingDeploymentCommand {
     pub fn new(name: String, logo: Vec<u8>, auth_methods: Vec<String>) -> Self {
         let has_logo = !logo.is_empty();
         Self {
@@ -36,26 +33,6 @@ impl CreateProjectCommand {
             has_logo,
             auth_methods,
         }
-    }
-
-    fn generate_key(prefix: &str) -> String {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-
-        let mut random_chars = Vec::with_capacity(32);
-        let charset: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let mut num = timestamp;
-
-        for _ in 0..32 {
-            let idx = (num % charset.len() as u128) as usize;
-            random_chars.push(charset[idx] as char);
-            num = num.wrapping_mul(17).wrapping_add(3);
-        }
-
-        let random_part: String = random_chars.into_iter().collect();
-        format!("{}_{}", prefix, random_part)
     }
 
     fn create_b2b_settings(&self, deployment_id: i64) -> DeploymentB2bSettingsWithRoles {
@@ -183,9 +160,23 @@ impl CreateProjectCommand {
             ..Default::default()
         }
     }
+
+    fn create_sms_templates(&self, deployment_id: i64) -> DeploymentSmsTemplate {
+        DeploymentSmsTemplate {
+            deployment_id,
+            ..Default::default()
+        }
+    }
+
+    fn create_email_templates(&self, deployment_id: i64) -> DeploymentEmailTemplate {
+        DeploymentEmailTemplate {
+            deployment_id,
+            ..Default::default()
+        }
+    }
 }
 
-impl Command for CreateProjectCommand {
+impl Command for CreateProjectWithStagingDeploymentCommand {
     type Output = ProjectWithDeployments;
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
@@ -219,7 +210,6 @@ impl Command for CreateProjectCommand {
         .fetch_one(&mut *tx)
         .await?;
 
-        let secret_key = Self::generate_key("sk");
         let random_name = generate_random_name();
         let count: i64 = app_state
             .redis_client
@@ -246,15 +236,14 @@ impl Command for CreateProjectCommand {
                 backend_host, 
                 frontend_host, 
                 publishable_key, 
-                secret, 
                 maintenance_mode,
+                mail_from_host,
                 created_at,
                 updated_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id, created_at, updated_at, deleted_at, 
-                     maintenance_mode, backend_host, frontend_host, publishable_key, secret, 
-                     project_id, mode
+                     maintenance_mode, backend_host, frontend_host, publishable_key, project_id, mode, mail_from_host
             "#,
             app_state.sf.next_id()? as i64,
             project_row.id,
@@ -262,8 +251,8 @@ impl Command for CreateProjectCommand {
             backend_host,
             frontend_host,
             publishable_key,
-            secret_key,
             false,
+            "dev.watch.services",
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
@@ -494,6 +483,87 @@ impl Command for CreateProjectCommand {
         .fetch_one(&mut *tx)
         .await?;
 
+        let sms_templates = self.create_sms_templates(deployment_row.id);
+
+        sqlx::query!(
+            r#"
+            INSERT INTO deployment_sms_templates (
+                id,
+                deployment_id,
+                reset_password_code_template,
+                verification_code_template,
+                password_change_template,
+                password_remove_template,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            "#,
+            app_state.sf.next_id()? as i64,
+            sms_templates.deployment_id,
+            sms_templates.reset_password_code_template,
+            sms_templates.verification_code_template,
+            sms_templates.password_change_template,
+            sms_templates.password_remove_template,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        let email_templates = self.create_email_templates(deployment_row.id);
+
+        sqlx::query!(
+            r#"
+            INSERT INTO deployment_email_templates (
+                id,
+                deployment_id,
+                organization_invite_template,
+                verification_code_template,
+                reset_password_code_template,
+                primary_email_change_template,
+                password_change_template,
+                password_remove_template,
+                sign_in_from_new_device_template,
+                magic_link_template,
+                waitlist_signup_template,
+                waitlist_invite_template,
+                workspace_invite_template,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            "#,
+            app_state.sf.next_id()? as i64,
+            email_templates.deployment_id,
+            serde_json::to_value(&email_templates.organization_invite_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.verification_code_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.reset_password_code_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.primary_email_change_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.password_change_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.password_remove_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.sign_in_from_new_device_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.magic_link_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.waitlist_signup_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.waitlist_invite_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&email_templates.workspace_invite_template)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .execute(&mut *tx)
+        .await?;
+
         let default_workspace_member_role = sqlx::query!(
             r#"
             INSERT INTO deployment_workspace_roles (
@@ -688,9 +758,9 @@ impl Command for CreateProjectCommand {
             backend_host: deployment_row.backend_host,
             frontend_host: deployment_row.frontend_host,
             publishable_key: deployment_row.publishable_key,
-            secret: deployment_row.secret,
             project_id: deployment_row.project_id,
             mode: DeploymentMode::from(deployment_row.mode),
+            mail_from_host: deployment_row.mail_from_host,
         };
 
         Ok(ProjectWithDeployments {

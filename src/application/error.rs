@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use thiserror::Error;
 
-use super::ApiErrorResponse;
+use super::response::ApiErrorResponse;
 
 #[derive(Error, Debug)]
 pub enum AppError {

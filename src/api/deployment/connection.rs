@@ -1,6 +1,8 @@
 use crate::{
     application::{
-        ApiResult, ApiSuccess, AppState, DeploymentSocialConnectionUpsert, PaginatedResponse,
+        AppState,
+        json::DeploymentSocialConnectionUpsert,
+        response::{ApiResult, ApiSuccess, PaginatedResponse},
     },
     core::{
         commands::{Command, UpsertDeploymentSocialConnectionCommand},

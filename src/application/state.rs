@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
 use aws_config::Region;
-use aws_sdk_cloudfront::Client as CloudFrontClient;
 use aws_sdk_s3::Client as S3Client;
+use aws_sdk_sesv2::Client as SesClient;
 use redis::Client as RedisClient;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
@@ -12,6 +12,7 @@ pub struct AppState {
     pub s3_client: S3Client,
     pub sf: sonyflake::Sonyflake,
     pub redis_client: RedisClient,
+    pub ses_client: SesClient,
 }
 
 impl AppState {
@@ -23,9 +24,30 @@ impl AppState {
             .await
             .expect("Failed to connect to database");
 
+        let r2_endpoint_url =
+            std::env::var("R2_ENDPOINT_URL").expect("R2_ENDPOINT_URL must be set");
+        let r2_access_key_id =
+            std::env::var("R2_ACCESS_KEY_ID").expect("R2_ACCESS_KEY_ID must be set");
+        let r2_secret_access_key =
+            std::env::var("R2_SECRET_ACCESS_KEY").expect("R2_SECRET_ACCESS_KEY must be set");
+
         let s3_client = S3Client::new(
             &aws_config::from_env()
-                .endpoint_url("https://65983e7602b77f53fde8372f51933eb0.r2.cloudflarestorage.com")
+                .endpoint_url(r2_endpoint_url)
+                .credentials_provider(aws_sdk_s3::config::Credentials::new(
+                    r2_access_key_id,
+                    r2_secret_access_key,
+                    None,
+                    None,
+                    "R2",
+                ))
+                .region(Region::new("auto"))
+                .load()
+                .await,
+        );
+
+        let ses_client = SesClient::new(
+            &aws_config::from_env()
                 .region(Region::new(
                     std::env::var("AWS_DEFAULT_REGION").expect("AWS_DEFAULT_REGION must be set"),
                 ))
@@ -49,6 +71,7 @@ impl AppState {
             s3_client,
             sf,
             redis_client,
+            ses_client,
         }
     }
 }

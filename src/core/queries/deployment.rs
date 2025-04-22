@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use crate::{
-    application::{AppError, AppState},
+    application::{AppError, AppState, http::params::deployment::DeploymentNameParams},
     core::models::{
         DeploymentAuthSettings, DeploymentB2bSettings, DeploymentB2bSettingsWithRoles,
         DeploymentDisplaySettings, DeploymentJwtTemplate, DeploymentMode,
         DeploymentOrganizationRole, DeploymentRestrictions, DeploymentRestrictionsSignUpMode,
-        DeploymentSocialConnection, DeploymentWithSettings, DeploymentWorkspaceRole,
+        DeploymentSocialConnection, DeploymentWithSettings, DeploymentWorkspaceRole, EmailTemplate,
     },
 };
 use sqlx::query;
@@ -38,8 +38,8 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployments.backend_host, 
                 deployments.frontend_host, 
                 deployments.publishable_key, 
-                deployments.secret,
                 deployments.mode,
+                deployments.mail_from_host,
                 
                 deployment_auth_settings.id as "auth_settings_id?", 
                 deployment_auth_settings.created_at as "auth_settings_created_at?",
@@ -206,7 +206,7 @@ impl Query for GetDeploymentWithSettingsQuery {
             backend_host: row.backend_host,
             frontend_host: row.frontend_host,
             publishable_key: row.publishable_key,
-            secret: row.secret,
+            mail_from_host: row.mail_from_host,
             mode,
             auth_settings: if row.auth_settings_id.is_some() {
                 Some(DeploymentAuthSettings {
@@ -503,5 +503,162 @@ impl Query for GetDeploymentJwtTemplatesQuery {
             .collect();
 
         Ok(templates)
+    }
+}
+
+pub struct GetDeploymentEmailTemplateQuery {
+    deployment_id: i64,
+    template_name: DeploymentNameParams,
+}
+
+impl GetDeploymentEmailTemplateQuery {
+    pub fn new(deployment_id: i64, template_name: DeploymentNameParams) -> Self {
+        Self {
+            deployment_id,
+            template_name,
+        }
+    }
+}
+
+impl Query for GetDeploymentEmailTemplateQuery {
+    type Output = EmailTemplate;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        let template = match self.template_name {
+            DeploymentNameParams::OrganizationInviteTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT organization_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.organization_invite_template
+            }
+            DeploymentNameParams::VerificationCodeTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT verification_code_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.verification_code_template
+            }
+            DeploymentNameParams::ResetPasswordCodeTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT reset_password_code_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.reset_password_code_template
+            }
+            DeploymentNameParams::PrimaryEmailChangeTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT primary_email_change_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.primary_email_change_template
+            }
+            DeploymentNameParams::PasswordChangeTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT password_change_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.password_change_template
+            }
+            DeploymentNameParams::PasswordRemoveTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT password_remove_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.password_remove_template
+            }
+            DeploymentNameParams::SignInFromNewDeviceTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT sign_in_from_new_device_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.sign_in_from_new_device_template
+            }
+            DeploymentNameParams::MagicLinkTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT magic_link_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.magic_link_template
+            }
+            DeploymentNameParams::WaitlistSignupTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT waitlist_signup_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.waitlist_signup_template
+            }
+            DeploymentNameParams::WaitlistInviteTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT waitlist_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.waitlist_invite_template
+            }
+            DeploymentNameParams::WorkspaceInviteTemplate => {
+                let row = query!(
+                    r#"
+                    SELECT workspace_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    "#,
+                    self.deployment_id,
+                )
+                .fetch_one(&app_state.db_pool)
+                .await?;
+
+                row.workspace_invite_template
+            }
+        };
+
+        Ok(serde_json::from_value(template)?)
     }
 }

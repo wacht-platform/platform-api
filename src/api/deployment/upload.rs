@@ -5,7 +5,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    application::{ApiResult, AppState, DeploymentDisplaySettingsUpdates},
+    application::{AppState, json::DeploymentDisplaySettingsUpdates, response::ApiResult},
     core::commands::{Command, UpdateDeploymentDisplaySettingsCommand, UploadToCdnCommand},
 };
 

@@ -44,9 +44,6 @@ impl GetProjectsWithDeploymentQuery {
             publishable_key: row
                 .get::<Option<String>, _>("deployment_publishable_key")
                 .unwrap_or_default(),
-            secret: row
-                .get::<Option<String>, _>("deployment_secret")
-                .unwrap_or_default(),
             project_id: row
                 .get::<Option<i64>, _>("deployment_project_id")
                 .unwrap_or_default(),
@@ -54,6 +51,9 @@ impl GetProjectsWithDeploymentQuery {
                 .get::<Option<String>, _>("deployment_mode")
                 .unwrap_or_default()
                 .into(),
+            mail_from_host: row
+                .get::<Option<String>, _>("deployment_mail_from_host")
+                .unwrap_or_default(),
         }
     }
 }
@@ -69,8 +69,9 @@ impl Query for GetProjectsWithDeploymentQuery {
                 d.updated_at as deployment_updated_at, d.deleted_at as deployment_deleted_at,
                 d.maintenance_mode as deployment_maintenance_mode, d.backend_host as deployment_backend_host,
                 d.frontend_host as deployment_frontend_host,
-                d.publishable_key as deployment_publishable_key, d.secret as deployment_secret,
-                d.project_id as deployment_project_id, d.mode as deployment_mode
+                d.publishable_key as deployment_publishable_key,
+                d.project_id as deployment_project_id, d.mode as deployment_mode,
+                d.mail_from_host as deployment_mail_from_host
             FROM projects p
             LEFT JOIN deployments d ON p.id = d.project_id AND d.deleted_at IS NULL
             WHERE p.deleted_at IS NULL

@@ -1,5 +1,9 @@
 use crate::{
-    application::{ApiResult, AppState, PaginatedResponse, UserListQueryParams},
+    application::{
+        AppState,
+        query::UserListQueryParams,
+        response::{ApiResult, PaginatedResponse},
+    },
     core::{
         models::UserWithIdentifiers,
         queries::{DeploymentUserListQuery, Query},

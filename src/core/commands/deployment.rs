@@ -4,8 +4,12 @@ use std::str::FromStr;
 use super::Command;
 use crate::{
     application::{
-        AppError, AppState, DeploymentDisplaySettingsUpdates, DeploymentRestrictionsUpdates,
-        DeploymentSocialConnectionUpsert, NewDeploymentJwtTemplate, PartialDeploymentJwtTemplate,
+        AppError, AppState,
+        http::json::{
+            DeploymentDisplaySettingsUpdates, DeploymentRestrictionsUpdates,
+            DeploymentSocialConnectionUpsert, NewDeploymentJwtTemplate,
+            PartialDeploymentJwtTemplate,
+        },
         http::models::json::deployment_settings::{
             DeploymentAuthSettingsUpdates, DeploymentB2bSettingsUpdates,
         },

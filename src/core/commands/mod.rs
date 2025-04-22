@@ -7,8 +7,10 @@ pub trait Command {
 }
 
 pub mod deployment;
+pub mod deployment_email_template;
 pub mod project;
 pub mod s3;
 pub use deployment::*;
+pub use deployment_email_template::*;
 pub use project::*;
 pub use s3::*;

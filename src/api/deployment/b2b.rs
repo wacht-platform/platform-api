@@ -4,7 +4,7 @@ use axum::extract::{Path, State};
 use crate::application::http::models::json::deployment_settings::DeploymentB2bSettingsUpdates;
 use crate::core::commands::{Command, UpdateDeploymentB2bSettingsCommand};
 use crate::{
-    application::{ApiResult, AppState, PaginatedResponse},
+    application::{AppState, response::ApiResult, response::PaginatedResponse},
     core::{
         models::{DeploymentOrganizationRole, DeploymentWorkspaceRole},
         queries::{GetDeploymentOrganizationRolesQuery, GetDeploymentWorkspaceRolesQuery, Query},

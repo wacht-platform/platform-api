@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct LightModeSettings {
     pub primary_color: Option<String>,
     pub background_color: Option<String>,
+    pub text_color: Option<String>,
 }
 
 impl Default for LightModeSettings {
@@ -12,6 +13,7 @@ impl Default for LightModeSettings {
         Self {
             primary_color: Some("#6366F1".to_string()),
             background_color: Some("#FFFFFF".to_string()),
+            text_color: Some("#000000".to_string()),
         }
     }
 }
@@ -20,6 +22,7 @@ impl Default for LightModeSettings {
 pub struct DarkModeSettings {
     pub primary_color: Option<String>,
     pub background_color: Option<String>,
+    pub text_color: Option<String>,
 }
 
 impl Default for DarkModeSettings {
@@ -27,6 +30,7 @@ impl Default for DarkModeSettings {
         Self {
             primary_color: Some("#2A2A2A".to_string()),
             background_color: Some("#8B94FF".to_string()),
+            text_color: Some("#FFFFFF".to_string()),
         }
     }
 }

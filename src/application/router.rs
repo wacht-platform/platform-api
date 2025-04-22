@@ -81,6 +81,14 @@ fn deployment_routes() -> Router<AppState> {
             patch(api::deployment::b2b::update_deployment_b2b_settings),
         )
         .route(
+            "/email-templates/{template_name}",
+            get(api::deployment::settings::get_email_template),
+        )
+        .route(
+            "/email-templates/{template_name}",
+            patch(api::deployment::settings::update_email_template),
+        )
+        .route(
             "/upload/{image_type}",
             post(api::deployment::upload::upload_image),
         );

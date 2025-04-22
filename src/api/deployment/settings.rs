@@ -1,18 +1,23 @@
 use crate::{
     application::{
-        ApiResult, AppState, DeploymentAuthSettingsUpdates, DeploymentDisplaySettingsUpdates,
-        DeploymentRestrictionsUpdates, NewDeploymentJwtTemplate, PaginatedResponse,
-        PartialDeploymentJwtTemplate,
+        AppState,
+        json::{
+            DeploymentAuthSettingsUpdates, DeploymentDisplaySettingsUpdates,
+            DeploymentRestrictionsUpdates, NewDeploymentJwtTemplate, PartialDeploymentJwtTemplate,
+        },
+        params::deployment::DeploymentNameParams,
+        response::{ApiResult, PaginatedResponse},
     },
     core::{
         commands::{
             Command, CreateDeploymentJwtTemplateCommand, DeleteDeploymentJwtTemplateCommand,
             UpdateDeploymentAuthSettingsCommand, UpdateDeploymentDisplaySettingsCommand,
-            UpdateDeploymentJwtTemplateCommand, UpdateDeploymentRestrictionsCommand,
+            UpdateDeploymentEmailTemplateCommand, UpdateDeploymentJwtTemplateCommand,
+            UpdateDeploymentRestrictionsCommand,
         },
-        models::{DeploymentJwtTemplate, DeploymentWithSettings},
+        models::{DeploymentJwtTemplate, DeploymentWithSettings, EmailTemplate},
         queries::{
-            Query,
+            GetDeploymentEmailTemplateQuery, Query,
             deployment::{GetDeploymentJwtTemplatesQuery, GetDeploymentWithSettingsQuery},
         },
     },
@@ -110,6 +115,29 @@ pub async fn update_deployment_display_settings(
     Json(settings): Json<DeploymentDisplaySettingsUpdates>,
 ) -> ApiResult<()> {
     UpdateDeploymentDisplaySettingsCommand::new(deployment_id, settings)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+pub async fn get_email_template(
+    State(app_state): State<AppState>,
+    Path((deployment_id, template_name)): Path<(i64, DeploymentNameParams)>,
+) -> ApiResult<EmailTemplate> {
+    GetDeploymentEmailTemplateQuery::new(deployment_id, template_name)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+pub async fn update_email_template(
+    State(app_state): State<AppState>,
+    Path((deployment_id, template_name)): Path<(i64, DeploymentNameParams)>,
+    Json(template): Json<EmailTemplate>,
+) -> ApiResult<EmailTemplate> {
+    UpdateDeploymentEmailTemplateCommand::new(deployment_id, template_name, template)
         .execute(&app_state)
         .await
         .map(Into::into)

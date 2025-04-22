@@ -6,13 +6,13 @@ use axum::{
 use crate::{
     application::AppState,
     core::{
-        commands::{Command, CreateProjectCommand, DeleteProjectCommand},
+        commands::{Command, CreateProjectWithStagingDeploymentCommand, DeleteProjectCommand},
         models::ProjectWithDeployments,
         queries::{GetProjectsWithDeploymentQuery, Query},
     },
 };
 
-use crate::application::{ApiResult, PaginatedResponse};
+use crate::application::response::{ApiResult, PaginatedResponse};
 
 pub async fn get_projects(
     State(app_state): State<AppState>,
@@ -60,7 +60,7 @@ pub async fn create_project(
         return Err((StatusCode::BAD_REQUEST, "Name is required").into());
     }
 
-    CreateProjectCommand::new(name, logo_buffer, methods)
+    CreateProjectWithStagingDeploymentCommand::new(name, logo_buffer, methods)
         .execute(&app_state)
         .await
         .map(Into::into)
