@@ -221,7 +221,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
         let hostname = format!("{}-{}", random_name, count);
 
         let backend_host = format!("{}.backend-api.services", hostname);
-        let frontend_host = format!("{}.watch.tech", hostname);
+        let frontend_host = format!("{}.wacht.tech", hostname);
         let mut publishable_key = String::from("pk_test_");
 
         let base64_backend_host = BASE64_STANDARD.encode(format!("https://{}", backend_host));
@@ -252,7 +252,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             frontend_host,
             publishable_key,
             false,
-            "dev.watch.services",
+            "dev.wacht.services",
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
@@ -345,7 +345,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
 
         let display_settings = self.create_display_settings(
             deployment_row.id,
-            format!("https://{}.watch.tech", hostname),
+            format!("https://{}.wacht.tech", hostname),
         );
 
         sqlx::query!(
