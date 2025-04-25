@@ -26,3 +26,4 @@ rand = "0.9.0"
 redis = { version = "0.29.5", features = ["tokio-comp"] }
 ureq = { version = "3.0.11", features = ["json"] }
 aws-sdk-sesv2 = "1.74.0"
+rcgen = { version = "0.13.2", features = ["crypto"] }

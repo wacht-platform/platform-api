@@ -3,7 +3,7 @@ use crate::{
     core::models::{
         AuthFactorsEnabled, DarkModeSettings, Deployment, DeploymentAuthSettings,
         DeploymentB2bSettings, DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings,
-        DeploymentEmailTemplate, DeploymentMode, DeploymentOrganizationRole,
+        DeploymentEmailTemplate, DeploymentKeyPair, DeploymentMode, DeploymentOrganizationRole,
         DeploymentRestrictions, DeploymentSmsTemplate, DeploymentWorkspaceRole, EmailSettings,
         FirstFactor, IndividualAuthSettings, LightModeSettings, OauthCredentials, PasswordSettings,
         PhoneSettings, ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider,
@@ -46,6 +46,20 @@ impl CreateProjectWithStagingDeploymentCommand {
             default_org_creator_role: DeploymentOrganizationRole::admin(),
             default_org_member_role: DeploymentOrganizationRole::member(),
         }
+    }
+
+    fn create_key_pair(&self, deployment_id: i64) -> Result<DeploymentKeyPair, AppError> {
+        let pair = rcgen::KeyPair::generate().map_err(|e| AppError::Internal(e.to_string()))?;
+
+        Ok(DeploymentKeyPair {
+            id: 0,
+            deployment_id,
+            public_key: pair.public_key_pem(),
+            private_key: pair.serialize_pem(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            deleted_at: None,
+        })
     }
 
     fn create_auth_settings(&self, deployment_id: i64) -> DeploymentAuthSettings {
@@ -505,6 +519,30 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             sms_templates.verification_code_template,
             sms_templates.password_change_template,
             sms_templates.password_remove_template,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        let key_pair = self.create_key_pair(deployment_row.id)?;
+
+        sqlx::query!(
+            r#"
+            INSERT INTO deployment_key_pairs (
+                id,
+                deployment_id,
+                public_key,
+                private_key,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+            app_state.sf.next_id()? as i64,
+            deployment_row.id,
+            key_pair.public_key,
+            key_pair.private_key,
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
