@@ -38,16 +38,16 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Organization Invitation".to_string(),
                 template_from: "invitations".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Invitation to join {{app.name}}".to_string(),
+                template_subject: "Invitation to join {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
                 {{app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
-                <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're Invited to Join {{app.name}}</h1>
+                <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're Invited to Join {{app_name}}</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    You have been invited to join {{app.name}}. Click the button below to accept the invitation.
+                    You have been invited to join {{app_name}}. Click the button below to accept the invitation.
                 </p>
                  <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     This invitation will expire in {{invitation.expires_in_days}} days.
@@ -61,7 +61,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Verification Code".to_string(),
                 template_from: "verification".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Your verification code for {{app.name}}".to_string(),
+                template_subject: "Your verification code for {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -85,7 +85,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Reset Password Code".to_string(),
                 template_from: "security".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Reset your password for {{app.name}}".to_string(),
+                template_subject: "Reset your password for {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -108,7 +108,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Email Address Changed".to_string(),
                 template_from: "security".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Your primary email address was changed on {{app.name}}".to_string(),
+                template_subject: "Your primary email address was changed on {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -117,7 +117,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Primary Email Address Updated</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    This email confirms that the primary email address associated with your {{app.name}} account was recently changed.
+                    This email confirms that the primary email address associated with your {{app_name}} account was recently changed.
                 </p>
                  <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     If you did not make this change, please contact our support team immediately.
@@ -129,7 +129,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Password Changed".to_string(),
                 template_from: "security".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Your password was changed on {{app.name}}".to_string(),
+                template_subject: "Your password was changed on {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -138,7 +138,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Password Successfully Changed</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    This email confirms that the password for your {{app.name}} account was successfully changed.
+                    This email confirms that the password for your {{app_name}} account was successfully changed.
                 </p>
                  <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     If you did not make this change, please reset your password immediately and contact our support team.
@@ -150,7 +150,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Password Removed".to_string(),
                 template_from: "security".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Your password was removed from your {{app.name}} account".to_string(),
+                template_subject: "Your password was removed from your {{app_name}} account".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -159,7 +159,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Password Removed</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    This email confirms that the password associated with your {{app.name}} account has been removed. You may now need to use alternative sign-in methods (like magic links or social providers) if enabled.
+                    This email confirms that the password associated with your {{app_name}} account has been removed. You may now need to use alternative sign-in methods (like magic links or social providers) if enabled.
                 </p>
                  <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     If you did not request this change, please contact our support team immediately.
@@ -171,7 +171,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "New Device Sign In".to_string(),
                 template_from: "security".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Sign in from a new device detected on {{app.name}}".to_string(),
+                template_subject: "Sign in from a new device detected on {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -180,7 +180,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">New Device Sign-In Detected</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    We detected a sign-in to your {{app.name}} account from a new device or location.
+                    We detected a sign-in to your {{app_name}} account from a new device or location.
                 </p>
                 {{#if device_info}}
                 <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
@@ -197,14 +197,14 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Magic Link Sign In".to_string(),
                 template_from: "authentication".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Sign in to {{app.name}}".to_string(),
+                template_subject: "Sign in to {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
                 {{app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
-                <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Sign In to {{app.name}}</h1>
+                <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Sign In to {{app_name}}</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     Click the button below to sign in to your account.
                 </p>
@@ -220,7 +220,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Added to Waitlist".to_string(),
                 template_from: "notifications".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "You're on the waitlist for {{app.name}}".to_string(),
+                template_subject: "You're on the waitlist for {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -229,7 +229,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're on the Waitlist!</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    Thanks for your interest in {{app.name}}! You've been successfully added to our waitlist.
+                    Thanks for your interest in {{app_name}}! You've been successfully added to our waitlist.
                 </p>
                  <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     We'll notify you as soon as a spot becomes available.
@@ -241,7 +241,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Waitlist Invitation".to_string(),
                 template_from: "invitations".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "You're invited to join {{app.name}} from the waitlist!".to_string(),
+                template_subject: "You're invited to join {{app_name}} from the waitlist!".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -250,7 +250,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're Invited!</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    Good news! You've been invited to join {{app.name}} from the waitlist. Click the button below to accept your invitation and get started.
+                    Good news! You've been invited to join {{app_name}} from the waitlist. Click the button below to accept your invitation and get started.
                 </p>
                  <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     This invitation will expire in {{invitation.expires_in_days}} days.
@@ -264,7 +264,7 @@ impl Default for DeploymentEmailTemplate {
                 template_name: "Invitation".to_string(), // Assuming this corresponds to "workspace-invitation"
                 template_from: "invitations".to_string(),
                 template_reply_to: "".to_string(),
-                template_subject: "Invitation to join {{app.name}}".to_string(),
+                template_subject: "Invitation to join {{app_name}}".to_string(),
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
@@ -273,7 +273,7 @@ impl Default for DeploymentEmailTemplate {
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Your invitation</h1>
                 <p style="text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
-                    {{#if inviter_name}}{{escapeURIs inviter_name}} has invited you to join them on {{app.name}}.{{else}}You are invited to join {{app.name}}.{{/if}}
+                    {{#if inviter_name}}{{escapeURIs inviter_name}} has invited you to join them on {{app_name}}.{{else}}You are invited to join {{app_name}}.{{/if}}
                 </p>
                 <p style="margin-top: 16px; text-align: left; font-size: 16px; color: #000000; font-weight: normal; line-height: 26px;">
                     This invitation will expire in {{invitation.expires_in_days}} days.
