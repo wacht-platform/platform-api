@@ -660,7 +660,7 @@ impl Command for UpdateDeploymentDisplaySettingsCommand {
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let mut query_builder =
-            sqlx::QueryBuilder::new("UPDATE deployment_display_settings SET updated_at = NOW() ");
+            sqlx::QueryBuilder::new("UPDATE deployment_ui_settings SET updated_at = NOW() ");
 
         if let Some(app_name) = &self.settings.app_name {
             query_builder.push(", app_name = ");

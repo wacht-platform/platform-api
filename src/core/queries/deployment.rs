@@ -4,7 +4,7 @@ use crate::{
     application::{AppError, AppState, http::params::deployment::DeploymentNameParams},
     core::models::{
         DeploymentAuthSettings, DeploymentB2bSettings, DeploymentB2bSettingsWithRoles,
-        DeploymentDisplaySettings, DeploymentJwtTemplate, DeploymentMode,
+        DeploymentUISettings, DeploymentJwtTemplate, DeploymentMode,
         DeploymentOrganizationRole, DeploymentRestrictions, DeploymentRestrictionsSignUpMode,
         DeploymentSocialConnection, DeploymentWithSettings, DeploymentWorkspaceRole, EmailTemplate,
     },
@@ -62,34 +62,34 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.session_validity_period,
                 deployment_auth_settings.session_inactive_timeout,
                 
-                deployment_display_settings.id as "display_settings_id?", 
-                deployment_display_settings.created_at as "display_settings_created_at?",
-                deployment_display_settings.updated_at as "display_settings_updated_at?", 
-                deployment_display_settings.deleted_at as "display_settings_deleted_at?",
-                deployment_display_settings.app_name, 
-                deployment_display_settings.tos_page_url, 
-                deployment_display_settings.sign_in_page_url,
-                deployment_display_settings.sign_up_page_url,
-                deployment_display_settings.after_sign_out_one_page_url,
-                deployment_display_settings.after_sign_out_all_page_url,
-                deployment_display_settings.favicon_image_url,
-                deployment_display_settings.logo_image_url,
-                deployment_display_settings.privacy_policy_url,
-                deployment_display_settings.signup_terms_statement, 
-                deployment_display_settings.signup_terms_statement_shown,
-                deployment_display_settings.light_mode_settings,
-                deployment_display_settings.dark_mode_settings,
-                deployment_display_settings.after_logo_click_url,
-                deployment_display_settings.organization_profile_url,
-                deployment_display_settings.create_organization_url,
-                deployment_display_settings.default_user_profile_image_url,
-                deployment_display_settings.default_organization_profile_image_url,
-                deployment_display_settings.use_initials_for_user_profile_image,
-                deployment_display_settings.use_initials_for_organization_profile_image,
-                deployment_display_settings.after_signup_redirect_url,
-                deployment_display_settings.after_signin_redirect_url,
-                deployment_display_settings.user_profile_url,
-                deployment_display_settings.after_create_organization_redirect_url,
+                deployment_ui_settings.id as "ui_settings_id?", 
+                deployment_ui_settings.created_at as "ui_settings_created_at?",
+                deployment_ui_settings.updated_at as "ui_settings_updated_at?", 
+                deployment_ui_settings.deleted_at as "ui_settings_deleted_at?",
+                deployment_ui_settings.app_name, 
+                deployment_ui_settings.tos_page_url, 
+                deployment_ui_settings.sign_in_page_url,
+                deployment_ui_settings.sign_up_page_url,
+                deployment_ui_settings.after_sign_out_one_page_url,
+                deployment_ui_settings.after_sign_out_all_page_url,
+                deployment_ui_settings.favicon_image_url,
+                deployment_ui_settings.logo_image_url,
+                deployment_ui_settings.privacy_policy_url,
+                deployment_ui_settings.signup_terms_statement, 
+                deployment_ui_settings.signup_terms_statement_shown,
+                deployment_ui_settings.light_mode_settings,
+                deployment_ui_settings.dark_mode_settings,
+                deployment_ui_settings.after_logo_click_url,
+                deployment_ui_settings.organization_profile_url,
+                deployment_ui_settings.create_organization_url,
+                deployment_ui_settings.default_user_profile_image_url,
+                deployment_ui_settings.default_organization_profile_image_url,
+                deployment_ui_settings.use_initials_for_user_profile_image,
+                deployment_ui_settings.use_initials_for_organization_profile_image,
+                deployment_ui_settings.after_signup_redirect_url,
+                deployment_ui_settings.after_signin_redirect_url,
+                deployment_ui_settings.user_profile_url,
+                deployment_ui_settings.after_create_organization_redirect_url,
                 
                 deployment_b2b_settings.id as "b2b_settings_id?",
                 deployment_b2b_settings.created_at as "b2b_settings_created_at?",
@@ -158,9 +158,9 @@ impl Query for GetDeploymentWithSettingsQuery {
             LEFT JOIN deployment_auth_settings 
                 ON deployments.id = deployment_auth_settings.deployment_id 
                 AND deployment_auth_settings.deleted_at IS NULL
-            LEFT JOIN deployment_display_settings 
-                ON deployments.id = deployment_display_settings.deployment_id 
-                AND deployment_display_settings.deleted_at IS NULL
+            LEFT JOIN deployment_ui_settings 
+                ON deployments.id = deployment_ui_settings.deployment_id 
+                AND deployment_ui_settings.deleted_at IS NULL
             LEFT JOIN deployment_restrictions
                 ON deployments.id = deployment_restrictions.deployment_id
                 AND deployment_restrictions.deleted_at IS NULL
@@ -239,12 +239,12 @@ impl Query for GetDeploymentWithSettingsQuery {
             } else {
                 None
             },
-            display_settings: if row.display_settings_id.is_some() {
-                Some(DeploymentDisplaySettings {
-                    id: row.display_settings_id.unwrap(),
-                    created_at: row.display_settings_created_at,
-                    updated_at: row.display_settings_updated_at,
-                    deleted_at: row.display_settings_deleted_at,
+            ui_settings: if row.ui_settings_id.is_some() {
+                Some(DeploymentUISettings {
+                    id: row.ui_settings_id.unwrap(),
+                    created_at: row.ui_settings_created_at,
+                    updated_at: row.ui_settings_updated_at,
+                    deleted_at: row.ui_settings_deleted_at,
                     deployment_id: self.deployment_id,
                     app_name: row.app_name,
                     tos_page_url: row.tos_page_url,

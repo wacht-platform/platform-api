@@ -62,7 +62,7 @@ fn deployment_routes() -> Router<AppState> {
         )
         .route(
             "/settings/display-settings",
-            patch(api::deployment::settings::update_deployment_display_settings),
+            patch(api::deployment::settings::update_deployment_ui_settings),
         )
         .route(
             "/restrictions",

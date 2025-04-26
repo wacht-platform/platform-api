@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    DeploymentAuthSettings, DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings,
-    DeploymentRestrictions,
+    DeploymentAuthSettings, DeploymentB2bSettingsWithRoles, DeploymentRestrictions,
+    DeploymentUISettings,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -54,7 +54,7 @@ pub struct DeploymentWithSettings {
     pub publishable_key: String,
     pub mode: DeploymentMode,
     pub auth_settings: Option<DeploymentAuthSettings>,
-    pub display_settings: Option<DeploymentDisplaySettings>,
+    pub ui_settings: Option<DeploymentUISettings>,
     pub b2b_settings: Option<DeploymentB2bSettingsWithRoles>,
     pub restrictions: Option<DeploymentRestrictions>,
 }

@@ -36,7 +36,7 @@ impl Default for DarkModeSettings {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DeploymentDisplaySettings {
+pub struct DeploymentUISettings {
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub id: i64,
     pub created_at: Option<DateTime<Utc>>,
@@ -69,7 +69,7 @@ pub struct DeploymentDisplaySettings {
     pub after_create_organization_redirect_url: String,
 }
 
-impl Default for DeploymentDisplaySettings {
+impl Default for DeploymentUISettings {
     fn default() -> Self {
         Self {
             id: 0,

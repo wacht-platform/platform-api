@@ -2,9 +2,9 @@ use crate::{
     application::{AppError, AppState},
     core::models::{
         AuthFactorsEnabled, DarkModeSettings, Deployment, DeploymentAuthSettings,
-        DeploymentB2bSettings, DeploymentB2bSettingsWithRoles, DeploymentDisplaySettings,
-        DeploymentEmailTemplate, DeploymentKeyPair, DeploymentMode, DeploymentOrganizationRole,
-        DeploymentRestrictions, DeploymentSmsTemplate, DeploymentWorkspaceRole, EmailSettings,
+        DeploymentB2bSettings, DeploymentB2bSettingsWithRoles, DeploymentEmailTemplate,
+        DeploymentKeyPair, DeploymentMode, DeploymentOrganizationRole, DeploymentRestrictions,
+        DeploymentSmsTemplate, DeploymentUISettings, DeploymentWorkspaceRole, EmailSettings,
         FirstFactor, IndividualAuthSettings, LightModeSettings, OauthCredentials, PasswordSettings,
         PhoneSettings, ProjectWithDeployments, SecondFactorPolicy, SocialConnectionProvider,
         UsernameSettings, VerificationPolicy,
@@ -135,12 +135,12 @@ impl CreateProjectWithStagingDeploymentCommand {
         }
     }
 
-    fn create_display_settings(
+    fn create_ui_settings(
         &self,
         deployment_id: i64,
         frontend_host: String,
-    ) -> DeploymentDisplaySettings {
-        DeploymentDisplaySettings {
+    ) -> DeploymentUISettings {
+        DeploymentUISettings {
             deployment_id,
             app_name: self.name.clone(),
             after_sign_out_all_page_url: format!("{}/sign-in", frontend_host),
@@ -154,7 +154,7 @@ impl CreateProjectWithStagingDeploymentCommand {
             user_profile_url: format!("{}/me", frontend_host),
             use_initials_for_organization_profile_image: true,
             use_initials_for_user_profile_image: true,
-            ..DeploymentDisplaySettings::default()
+            ..DeploymentUISettings::default()
         }
     }
 
@@ -357,14 +357,14 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
         .execute(&mut *tx)
         .await?;
 
-        let display_settings = self.create_display_settings(
+        let ui_settings = self.create_ui_settings(
             deployment_row.id,
             format!("https://{}.wacht.tech", hostname),
         );
 
         sqlx::query!(
             r#"
-            INSERT INTO deployment_display_settings (
+            INSERT INTO deployment_ui_settings (
                 id,
                 deployment_id,
                 app_name,
@@ -397,33 +397,33 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
             "#,
             app_state.sf.next_id()? as i64,
-            display_settings.deployment_id,
-            display_settings.app_name,
-            display_settings.tos_page_url,
-            display_settings.sign_in_page_url,
-            display_settings.sign_up_page_url,
-            display_settings.after_sign_out_one_page_url,
-            display_settings.after_sign_out_all_page_url,
-            display_settings.favicon_image_url,
-            display_settings.logo_image_url,
-            display_settings.privacy_policy_url,
-            display_settings.signup_terms_statement,
-            display_settings.signup_terms_statement_shown,
-            serde_json::to_value(&display_settings.light_mode_settings)
+            ui_settings.deployment_id,
+            ui_settings.app_name,
+            ui_settings.tos_page_url,
+            ui_settings.sign_in_page_url,
+            ui_settings.sign_up_page_url,
+            ui_settings.after_sign_out_one_page_url,
+            ui_settings.after_sign_out_all_page_url,
+            ui_settings.favicon_image_url,
+            ui_settings.logo_image_url,
+            ui_settings.privacy_policy_url,
+            ui_settings.signup_terms_statement,
+            ui_settings.signup_terms_statement_shown,
+            serde_json::to_value(&ui_settings.light_mode_settings)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
-            serde_json::to_value(&display_settings.dark_mode_settings)
+            serde_json::to_value(&ui_settings.dark_mode_settings)
                 .map_err(|e| AppError::Serialization(e.to_string()))?,
-            display_settings.after_logo_click_url,
-            display_settings.organization_profile_url,
-            display_settings.create_organization_url,
-            display_settings.default_user_profile_image_url,
-            display_settings.default_organization_profile_image_url,
-            display_settings.use_initials_for_user_profile_image,
-            display_settings.use_initials_for_organization_profile_image,
-            display_settings.after_signup_redirect_url,
-            display_settings.after_signin_redirect_url,
-            display_settings.user_profile_url,
-            display_settings.after_create_organization_redirect_url,
+            ui_settings.after_logo_click_url,
+            ui_settings.organization_profile_url,
+            ui_settings.create_organization_url,
+            ui_settings.default_user_profile_image_url,
+            ui_settings.default_organization_profile_image_url,
+            ui_settings.use_initials_for_user_profile_image,
+            ui_settings.use_initials_for_organization_profile_image,
+            ui_settings.after_signup_redirect_url,
+            ui_settings.after_signin_redirect_url,
+            ui_settings.user_profile_url,
+            ui_settings.after_create_organization_redirect_url,
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
@@ -871,7 +871,7 @@ impl Command for DeleteProjectCommand {
         for deployment in &deployments {
             sqlx::query!(
                 r#"
-                UPDATE deployment_display_settings
+                UPDATE deployment_ui_settings
                 SET deleted_at = $1
                 WHERE deployment_id = $2 AND deleted_at IS NULL
                 "#,

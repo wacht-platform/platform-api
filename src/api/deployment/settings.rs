@@ -109,7 +109,7 @@ pub async fn delete_deployment_jwt_template(
         .map_err(Into::into)
 }
 
-pub async fn update_deployment_display_settings(
+pub async fn update_deployment_ui_settings(
     State(app_state): State<AppState>,
     Path(deployment_id): Path<i64>,
     Json(settings): Json<DeploymentDisplaySettingsUpdates>,
