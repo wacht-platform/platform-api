@@ -266,7 +266,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             frontend_host,
             publishable_key,
             false,
-            "dev.wacht.services",
+            "staging.wacht.services",
             chrono::Utc::now(),
             chrono::Utc::now(),
         )
