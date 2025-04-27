@@ -42,7 +42,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're Invited to Join {{app_name}}</h1>
@@ -65,7 +65,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Verification Code</h1>
@@ -89,7 +89,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Reset Your Password</h1>
@@ -112,7 +112,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Primary Email Address Updated</h1>
@@ -133,7 +133,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Password Successfully Changed</h1>
@@ -154,7 +154,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Password Removed</h1>
@@ -175,7 +175,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">New Device Sign-In Detected</h1>
@@ -201,7 +201,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Sign In to {{app_name}}</h1>
@@ -224,7 +224,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're on the Waitlist!</h1>
@@ -245,7 +245,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">You're Invited!</h1>
@@ -268,7 +268,7 @@ impl Default for DeploymentEmailTemplate {
                 template_data: r#"
         <div style="padding: 48px 32px; background-color: #f9fafb;">
             <div style="text-align: center; margin-bottom: 32px; font-size: 32px; line-height: 1.4;">
-                {{app_logo}}
+                {{image app_logo}}
             </div>
             <div style="background-color: #ffffff; border-radius: 0px; padding: 32px 32px 48px 32px; margin: 0; text-align: left; box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);">
                 <h1 style="color: #000000; text-align: left; margin-top: 0; margin-bottom: 16px; font-weight: 500; font-size: 28px; line-height: 36px;">Your invitation</h1>
