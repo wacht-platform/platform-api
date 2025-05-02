@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     let app_state = application::AppState::new_from_env().await;
     let app = application::new(app_state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await?;
     axum::serve(listener, app).await?;
 
     Ok(())

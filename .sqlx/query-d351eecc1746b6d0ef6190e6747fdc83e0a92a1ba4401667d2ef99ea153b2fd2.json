@@ -25,16 +25,21 @@
       },
       {
         "ordinal": 4,
+        "name": "organization_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
         "name": "name",
         "type_info": "Text"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "permissions",
         "type_info": "TextArray"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "deployment_id",
         "type_info": "Int8"
       }
@@ -48,6 +53,7 @@
       false,
       false,
       false,
+      true,
       true,
       false,
       false,
