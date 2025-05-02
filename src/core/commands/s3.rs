@@ -22,7 +22,7 @@ impl Command for UploadToCdnCommand {
         app_state
             .s3_client
             .put_object()
-            .bucket(std::env::var("AWS_CDN_BUCKET").expect("AWS_CDN_BUCKET must be set"))
+            .bucket(std::env::var("R2_CDN_BUCKET").expect("R2_CDN_BUCKET must be set"))
             .key(&self.file_path)
             .body(ByteStream::new(SdkBody::from(self.body)))
             .send()

@@ -10,8 +10,10 @@ pub struct DeploymentWorkspaceRole {
     pub deleted_at: Option<DateTime<Utc>>,
     pub name: String,
     pub permissions: Vec<String>,
+    pub organization_id: Option<i64>,
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub deployment_id: i64,
+    pub workspace_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -25,6 +27,7 @@ pub struct DeploymentOrganizationRole {
     pub permissions: Vec<String>,
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub deployment_id: i64,
+    pub organization_id: Option<i64>,
 }
 
 impl DeploymentWorkspaceRole {
@@ -36,7 +39,9 @@ impl DeploymentWorkspaceRole {
             deleted_at: None,
             name: "Admin".to_string(),
             permissions: vec!["workspace:admin".to_string()],
+            organization_id: None,
             deployment_id: 0,
+            workspace_id: None,
         }
     }
 
@@ -48,7 +53,9 @@ impl DeploymentWorkspaceRole {
             deleted_at: None,
             name: "Member".to_string(),
             permissions: vec!["workspace:member".to_string()],
+            organization_id: None,
             deployment_id: 0,
+            workspace_id: None,
         }
     }
 }
@@ -63,6 +70,7 @@ impl DeploymentOrganizationRole {
             name: "Admin".to_string(),
             permissions: vec!["organization:admin".to_string()],
             deployment_id: 0,
+            organization_id: None,
         }
     }
 }
@@ -77,6 +85,7 @@ impl DeploymentOrganizationRole {
             name: "Member".to_string(),
             permissions: vec!["organization:member".to_string()],
             deployment_id: 0,
+            organization_id: None,
         }
     }
 }

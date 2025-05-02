@@ -4,9 +4,9 @@ use crate::{
     application::{AppError, AppState, http::params::deployment::DeploymentNameParams},
     core::models::{
         DeploymentAuthSettings, DeploymentB2bSettings, DeploymentB2bSettingsWithRoles,
-        DeploymentUISettings, DeploymentJwtTemplate, DeploymentMode,
-        DeploymentOrganizationRole, DeploymentRestrictions, DeploymentRestrictionsSignUpMode,
-        DeploymentSocialConnection, DeploymentWithSettings, DeploymentWorkspaceRole, EmailTemplate,
+        DeploymentJwtTemplate, DeploymentMode, DeploymentOrganizationRole, DeploymentRestrictions,
+        DeploymentRestrictionsSignUpMode, DeploymentSocialConnection, DeploymentUISettings,
+        DeploymentWithSettings, DeploymentWorkspaceRole, EmailTemplate,
     },
 };
 use sqlx::query;
@@ -360,6 +360,8 @@ impl Query for GetDeploymentWithSettingsQuery {
                             .default_workspace_creator_role_permissions
                             .unwrap_or_default(),
                         deployment_id: self.deployment_id,
+                        organization_id: None,
+                        workspace_id: None,
                     },
                     default_workspace_member_role: DeploymentWorkspaceRole {
                         id: row.b2b_settings_default_workspace_member_role_id.unwrap(),
@@ -371,6 +373,8 @@ impl Query for GetDeploymentWithSettingsQuery {
                             .default_workspace_member_role_permissions
                             .unwrap_or_default(),
                         deployment_id: self.deployment_id,
+                        organization_id: None,
+                        workspace_id: None,
                     },
                     default_org_creator_role: DeploymentOrganizationRole {
                         id: row.b2b_settings_default_org_creator_role_id.unwrap(),
@@ -380,6 +384,7 @@ impl Query for GetDeploymentWithSettingsQuery {
                         name: row.default_org_creator_role_name.unwrap_or_default(),
                         permissions: row.default_org_creator_role_permissions.unwrap_or_default(),
                         deployment_id: self.deployment_id,
+                        organization_id: None,
                     },
                     default_org_member_role: DeploymentOrganizationRole {
                         id: row.b2b_settings_default_org_member_role_id.unwrap(),
@@ -389,6 +394,7 @@ impl Query for GetDeploymentWithSettingsQuery {
                         name: row.default_org_member_role_name.unwrap_or_default(),
                         permissions: row.default_org_member_role_permissions.unwrap_or_default(),
                         deployment_id: self.deployment_id,
+                        organization_id: None,
                     },
                 })
             } else {
