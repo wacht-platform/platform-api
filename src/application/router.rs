@@ -44,17 +44,18 @@ fn deployment_routes() -> Router<AppState> {
             "/jwt-templates/{id}",
             delete(api::deployment::settings::delete_deployment_jwt_template),
         )
+        .route("/workspaces", get(api::deployment::b2b::get_workspace_list))
         .route(
             "/workspace-roles",
             get(api::deployment::b2b::get_deployment_workspace_roles),
         )
         .route(
-            "/organization-roles",
-            get(api::deployment::b2b::get_deployment_org_roles),
+            "/organizations",
+            get(api::deployment::b2b::get_organization_list),
         )
         .route(
-            "/organizations",
-            get(api::deployment::organization::get_organization_list),
+            "/organization-roles",
+            get(api::deployment::b2b::get_deployment_org_roles),
         )
         .route(
             "/settings/auth-settings",

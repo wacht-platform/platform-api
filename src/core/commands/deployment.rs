@@ -390,10 +390,10 @@ impl Command for CreateDeploymentJwtTemplateCommand {
             self.template.token_lifetime,
             self.template.allowed_clock_skew,
             serde_json::to_value(self.template.custom_signing_key).unwrap(),
-            serde_json::to_value(self.template.template).unwrap(),
+            self.template.template,
         )
         .fetch_one(&app_state.db_pool)
-        .await?;
+        .await.unwrap();
 
         let template = DeploymentJwtTemplate {
             id: result.id,
@@ -495,7 +495,7 @@ impl Command for DeleteDeploymentJwtTemplateCommand {
     type Output = ();
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
-        sqlx::query("UPDATE deployment_jwt_templates SET deleted_at = NOW() WHERE id = $1")
+        sqlx::query("DELETE FROM deployment_jwt_templates WHERE id = $1")
             .bind(self.id)
             .execute(&app_state.db_pool)
             .await?;

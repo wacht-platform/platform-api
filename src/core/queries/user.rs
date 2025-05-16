@@ -98,6 +98,8 @@ impl Query for DeploymentUserListQuery {
         query.push(" LIMIT ");
         query.push_bind(self.limit);
 
+        println!("{:?}", query.sql());
+
         let rows = query.build().fetch_all(&app_state.db_pool).await?;
 
         let users = rows

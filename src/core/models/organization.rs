@@ -12,7 +12,7 @@ pub struct Organization {
     pub name: String,
     pub image_url: String,
     pub description: String,
-    pub member_count: i32,
+    pub member_count: i64,
     pub public_metadata: Value,
     pub private_metadata: Value,
 }

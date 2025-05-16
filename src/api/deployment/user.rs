@@ -28,6 +28,8 @@ pub async fn get_user_list(
         .execute(&app_state)
         .await?;
 
+    println!("{:?}", users);
+
     let has_more = users.len() > limit as usize;
     let users = if has_more {
         users[..limit as usize].to_vec()

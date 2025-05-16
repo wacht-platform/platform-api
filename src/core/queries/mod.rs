@@ -8,12 +8,10 @@ pub trait Query {
 
 pub mod b2b;
 pub mod deployment;
-pub mod organization;
 pub mod project;
 pub mod user;
 
 pub use b2b::*;
 pub use deployment::*;
-pub use organization::*;
 pub use project::*;
 pub use user::*;
