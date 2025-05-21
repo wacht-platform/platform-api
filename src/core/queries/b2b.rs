@@ -24,7 +24,7 @@ impl Query for GetDeploymentWorkspaceRolesQuery {
         let rows = query_as!(
             DeploymentWorkspaceRole,
             r#"
-            SELECT * FROM deployment_workspace_roles WHERE deployment_id = $1"#,
+            SELECT * FROM workspace_roles WHERE deployment_id = $1"#,
             self.deployment_id
         )
         .fetch_all(&app_state.db_pool)
@@ -50,7 +50,7 @@ impl Query for GetDeploymentOrganizationRolesQuery {
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let rows = query_as!(
             DeploymentOrganizationRole,
-            r#"SELECT * FROM deployment_organization_roles WHERE deployment_id = $1"#,
+            r#"SELECT * FROM organization_roles WHERE deployment_id = $1"#,
             self.deployment_id
         )
         .fetch_all(&app_state.db_pool)

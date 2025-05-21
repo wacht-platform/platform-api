@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT * FROM deployment_workspace_roles WHERE deployment_id = $1",
+  "query": "\n            SELECT\n                id,\n                created_at,\n                updated_at,\n                deleted_at,\n                deployment_id,\n                name,\n                token_lifetime,\n                allowed_clock_skew,\n                custom_signing_key,\n                template\n            FROM deployment_jwt_templates\n            WHERE deployment_id = $1 AND deleted_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -25,7 +25,7 @@
       },
       {
         "ordinal": 4,
-        "name": "organization_id",
+        "name": "deployment_id",
         "type_info": "Int8"
       },
       {
@@ -35,18 +35,23 @@
       },
       {
         "ordinal": 6,
-        "name": "permissions",
-        "type_info": "TextArray"
+        "name": "token_lifetime",
+        "type_info": "Int8"
       },
       {
         "ordinal": 7,
-        "name": "deployment_id",
+        "name": "allowed_clock_skew",
         "type_info": "Int8"
       },
       {
         "ordinal": 8,
-        "name": "workspace_id",
-        "type_info": "Int8"
+        "name": "custom_signing_key",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "template",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -59,12 +64,13 @@
       false,
       false,
       true,
+      false,
+      false,
+      false,
+      false,
       true,
-      false,
-      false,
-      false,
-      true
+      false
     ]
   },
-  "hash": "5b437be4651fcb68155d7139d8bfafdd88b18a5e0014d1d8fa9696c0332be939"
+  "hash": "2a6d947a09a2d14b57902f5e33367c93690a77370e310f76591aaa8d0fc8e0e2"
 }

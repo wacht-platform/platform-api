@@ -29,45 +29,45 @@ impl Query for GetDeploymentWithSettingsQuery {
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let row = query!(
             r#"
-            SELECT 
-                deployments.id, 
-                deployments.created_at, 
-                deployments.updated_at, 
+            SELECT
+                deployments.id,
+                deployments.created_at,
+                deployments.updated_at,
                 deployments.deleted_at,
-                deployments.maintenance_mode, 
-                deployments.backend_host, 
-                deployments.frontend_host, 
-                deployments.publishable_key, 
+                deployments.maintenance_mode,
+                deployments.backend_host,
+                deployments.frontend_host,
+                deployments.publishable_key,
                 deployments.mode,
                 deployments.mail_from_host,
-                
-                deployment_auth_settings.id as "auth_settings_id?", 
+
+                deployment_auth_settings.id as "auth_settings_id?",
                 deployment_auth_settings.created_at as "auth_settings_created_at?",
-                deployment_auth_settings.updated_at as "auth_settings_updated_at?", 
+                deployment_auth_settings.updated_at as "auth_settings_updated_at?",
                 deployment_auth_settings.deleted_at as "auth_settings_deleted_at?",
-                deployment_auth_settings.email_address::jsonb as "email_address?", 
+                deployment_auth_settings.email_address::jsonb as "email_address?",
                 deployment_auth_settings.phone_number::jsonb as "phone_number?",
-                deployment_auth_settings.username::jsonb as username, 
+                deployment_auth_settings.username::jsonb as username,
                 deployment_auth_settings.first_name::jsonb as first_name,
-                deployment_auth_settings.last_name::jsonb as last_name, 
+                deployment_auth_settings.last_name::jsonb as last_name,
                 deployment_auth_settings.password::jsonb as password,
                 deployment_auth_settings.auth_factors_enabled::jsonb as auth_factors_enabled,
                 deployment_auth_settings.verification_policy::jsonb as verification_policy,
-                deployment_auth_settings.second_factor_policy::text as second_factor_policy, 
-                deployment_auth_settings.first_factor::text as first_factor, 
+                deployment_auth_settings.second_factor_policy::text as second_factor_policy,
+                deployment_auth_settings.first_factor::text as first_factor,
                 deployment_auth_settings.passkey::jsonb as passkey,
                 deployment_auth_settings.magic_link::jsonb as magic_link,
                 deployment_auth_settings.multi_session_support::jsonb as multi_session_support,
                 deployment_auth_settings.session_token_lifetime,
                 deployment_auth_settings.session_validity_period,
                 deployment_auth_settings.session_inactive_timeout,
-                
-                deployment_ui_settings.id as "ui_settings_id?", 
+
+                deployment_ui_settings.id as "ui_settings_id?",
                 deployment_ui_settings.created_at as "ui_settings_created_at?",
-                deployment_ui_settings.updated_at as "ui_settings_updated_at?", 
+                deployment_ui_settings.updated_at as "ui_settings_updated_at?",
                 deployment_ui_settings.deleted_at as "ui_settings_deleted_at?",
-                deployment_ui_settings.app_name, 
-                deployment_ui_settings.tos_page_url, 
+                deployment_ui_settings.app_name,
+                deployment_ui_settings.tos_page_url,
                 deployment_ui_settings.sign_in_page_url,
                 deployment_ui_settings.sign_up_page_url,
                 deployment_ui_settings.after_sign_out_one_page_url,
@@ -75,7 +75,7 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_ui_settings.favicon_image_url,
                 deployment_ui_settings.logo_image_url,
                 deployment_ui_settings.privacy_policy_url,
-                deployment_ui_settings.signup_terms_statement, 
+                deployment_ui_settings.signup_terms_statement,
                 deployment_ui_settings.signup_terms_statement_shown,
                 deployment_ui_settings.light_mode_settings,
                 deployment_ui_settings.dark_mode_settings,
@@ -90,7 +90,7 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_ui_settings.after_signin_redirect_url,
                 deployment_ui_settings.user_profile_url,
                 deployment_ui_settings.after_create_organization_redirect_url,
-                
+
                 deployment_b2b_settings.id as "b2b_settings_id?",
                 deployment_b2b_settings.created_at as "b2b_settings_created_at?",
                 deployment_b2b_settings.updated_at as "b2b_settings_updated_at?",
@@ -120,7 +120,7 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_default_workspace_creator_role.deleted_at as "default_workspace_creator_role_deleted_at?",
                 deployment_default_workspace_creator_role.name as "default_workspace_creator_role_name?",
                 deployment_default_workspace_creator_role.permissions as "default_workspace_creator_role_permissions?",
-                
+
                 deployment_default_workspace_member_role.created_at as "default_workspace_member_role_created_at?",
                 deployment_default_workspace_member_role.updated_at as "default_workspace_member_role_updated_at?",
                 deployment_default_workspace_member_role.deleted_at as "default_workspace_member_role_deleted_at?",
@@ -153,13 +153,13 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_restrictions.allowlisted_resources,
                 deployment_restrictions.blocklisted_resources,
                 deployment_restrictions.sign_up_mode
-                
+
             FROM deployments
-            LEFT JOIN deployment_auth_settings 
-                ON deployments.id = deployment_auth_settings.deployment_id 
+            LEFT JOIN deployment_auth_settings
+                ON deployments.id = deployment_auth_settings.deployment_id
                 AND deployment_auth_settings.deleted_at IS NULL
-            LEFT JOIN deployment_ui_settings 
-                ON deployments.id = deployment_ui_settings.deployment_id 
+            LEFT JOIN deployment_ui_settings
+                ON deployments.id = deployment_ui_settings.deployment_id
                 AND deployment_ui_settings.deleted_at IS NULL
             LEFT JOIN deployment_restrictions
                 ON deployments.id = deployment_restrictions.deployment_id
@@ -167,16 +167,16 @@ impl Query for GetDeploymentWithSettingsQuery {
             LEFT JOIN deployment_b2b_settings
                 ON deployments.id = deployment_b2b_settings.deployment_id
                 AND deployment_b2b_settings.deleted_at IS NULL
-            LEFT JOIN deployment_workspace_roles AS deployment_default_workspace_creator_role
+            LEFT JOIN workspace_roles AS deployment_default_workspace_creator_role
                 ON deployment_default_workspace_creator_role.id = deployment_b2b_settings.default_workspace_creator_role_id
                 AND deployment_default_workspace_creator_role.deleted_at IS NULL
-            LEFT JOIN deployment_workspace_roles AS deployment_default_workspace_member_role
+            LEFT JOIN workspace_roles AS deployment_default_workspace_member_role
                 ON deployment_default_workspace_member_role.id = deployment_b2b_settings.default_workspace_member_role_id
                 AND deployment_default_workspace_member_role.deleted_at IS NULL
-            LEFT JOIN deployment_organization_roles AS deployment_default_org_creator_role
+            LEFT JOIN organization_roles AS deployment_default_org_creator_role
                 ON deployment_default_org_creator_role.id = deployment_b2b_settings.default_org_creator_role_id
                 AND deployment_default_org_creator_role.deleted_at IS NULL
-            LEFT JOIN deployment_organization_roles AS deployment_default_org_member_role
+            LEFT JOIN organization_roles AS deployment_default_org_member_role
                 ON deployment_default_org_member_role.id = deployment_b2b_settings.default_org_member_role_id
                 AND deployment_default_org_member_role.deleted_at IS NULL
             WHERE deployments.id = $1 AND deployments.deleted_at IS NULL
@@ -420,7 +420,7 @@ impl Query for GetDeploymentSocialConnectionsQuery {
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let row = query!(
             r#"
-            SELECT 
+            SELECT
                 id,
                 created_at,
                 updated_at,
@@ -471,7 +471,7 @@ impl Query for GetDeploymentJwtTemplatesQuery {
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let row = query!(
             r#"
-            SELECT 
+            SELECT
                 id,
                 created_at,
                 updated_at,

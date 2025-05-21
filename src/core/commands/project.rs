@@ -245,18 +245,18 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             r#"
             INSERT INTO deployments (
                 id,
-                project_id, 
-                mode, 
-                backend_host, 
-                frontend_host, 
-                publishable_key, 
+                project_id,
+                mode,
+                backend_host,
+                frontend_host,
+                publishable_key,
                 maintenance_mode,
                 mail_from_host,
                 created_at,
                 updated_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING id, created_at, updated_at, deleted_at, 
+            RETURNING id, created_at, updated_at, deleted_at,
                      maintenance_mode, backend_host, frontend_host, publishable_key, project_id, mode, mail_from_host
             "#,
             app_state.sf.next_id()? as i64,
@@ -300,9 +300,9 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
                 updated_at
             )
             VALUES (
-                $1, 
-                $2, 
-                $3, 
+                $1,
+                $2,
+                $3,
                 $4,
                 $5,
                 $6,
@@ -475,7 +475,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
 
         let default_workspace_creator_role = sqlx::query!(
             r#"
-            INSERT INTO deployment_workspace_roles (
+            INSERT INTO workspace_roles (
                 id,
                 deployment_id,
                 name,
@@ -604,7 +604,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
 
         let default_workspace_member_role = sqlx::query!(
             r#"
-            INSERT INTO deployment_workspace_roles (
+            INSERT INTO workspace_roles (
                 id,
                 deployment_id,
                 name,
@@ -628,7 +628,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
 
         let default_org_creator_role = sqlx::query!(
             r#"
-            INSERT INTO deployment_organization_roles (
+            INSERT INTO organization_roles (
                 id,
                 deployment_id,
                 name,
@@ -652,7 +652,7 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
 
         let default_org_member_role = sqlx::query!(
             r#"
-            INSERT INTO deployment_organization_roles (
+            INSERT INTO organization_roles (
                 id,
                 deployment_id,
                 name,
@@ -832,7 +832,7 @@ impl Command for DeleteProjectCommand {
 
         let deployments = sqlx::query!(
             r#"
-            SELECT id FROM deployments 
+            SELECT id FROM deployments
             WHERE project_id = $1 AND deleted_at IS NULL
             "#,
             self.id

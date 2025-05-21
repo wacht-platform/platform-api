@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id FROM deployments \n            WHERE project_id = $1 AND deleted_at IS NULL\n            ",
+  "query": "\n            SELECT id FROM deployments\n            WHERE project_id = $1 AND deleted_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "6f72b07be1299db0db678362886b36bb38e22354d4008af0f9daa08374b808ae"
+  "hash": "2842e283a0913929def72cf6760d9dbd93ac857bca0b1eabb08235e62bc16961"
 }

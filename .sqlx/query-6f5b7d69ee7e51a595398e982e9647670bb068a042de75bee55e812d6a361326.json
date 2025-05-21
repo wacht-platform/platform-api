@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM deployment_organization_roles WHERE deployment_id = $1",
+  "query": "\n            SELECT\n                id,\n                created_at,\n                updated_at,\n                deleted_at,\n                deployment_id,\n                provider,\n                enabled,\n                credentials\n            FROM deployment_social_connections\n            WHERE deployment_id = $1 AND deleted_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -25,23 +25,23 @@
       },
       {
         "ordinal": 4,
-        "name": "organization_id",
+        "name": "deployment_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 5,
-        "name": "name",
+        "name": "provider",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "permissions",
-        "type_info": "TextArray"
+        "name": "enabled",
+        "type_info": "Bool"
       },
       {
         "ordinal": 7,
-        "name": "deployment_id",
-        "type_info": "Int8"
+        "name": "credentials",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -55,10 +55,10 @@
       false,
       true,
       true,
+      true,
       false,
-      false,
-      false
+      true
     ]
   },
-  "hash": "d351eecc1746b6d0ef6190e6747fdc83e0a92a1ba4401667d2ef99ea153b2fd2"
+  "hash": "6f5b7d69ee7e51a595398e982e9647670bb068a042de75bee55e812d6a361326"
 }
