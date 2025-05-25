@@ -9,7 +9,6 @@ pub struct ProjectWithDeployments {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub name: String,
     pub image_url: String,
     pub deployments: Vec<Deployment>,
@@ -21,7 +20,6 @@ pub struct Project {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub name: String,
     pub image_url: String,
 }

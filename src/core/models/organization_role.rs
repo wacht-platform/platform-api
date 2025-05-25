@@ -9,7 +9,6 @@ pub struct OrganizationRole {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub name: String,
     pub permissions: Vec<OrganizationPermission>,
 }

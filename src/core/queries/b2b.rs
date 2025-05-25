@@ -2,7 +2,11 @@ use sqlx::{Row, query, query_as};
 
 use crate::{
     application::{AppError, AppState},
-    core::models::{DeploymentOrganizationRole, DeploymentWorkspaceRole, Organization, Workspace},
+    core::models::{
+        DeploymentOrganizationRole, DeploymentWorkspaceRole, Organization, OrganizationDetails,
+        OrganizationMemberDetails, OrganizationRole, Workspace, WorkspaceDetails,
+        WorkspaceMemberDetails, WorkspaceRole, WorkspaceWithOrganizationName,
+    },
 };
 
 use super::Query;
@@ -127,11 +131,11 @@ impl Query for DeploymentOrganizationListQuery {
         let mut query_str = String::from(
             r#"
             SELECT
-                o.id, o.created_at, o.updated_at, o.deleted_at,
+                o.id, o.created_at, o.updated_at,
                 o.name, o.image_url, o.description, o.member_count,
                 o.public_metadata, o.private_metadata
             FROM organizations o
-            WHERE o.deployment_id = $1 AND o.deleted_at IS NULL
+            WHERE o.deployment_id = $1
             "#,
         );
 
@@ -154,7 +158,6 @@ impl Query for DeploymentOrganizationListQuery {
                 id: row.get("id"),
                 created_at: row.get("created_at"),
                 updated_at: row.get("updated_at"),
-                deleted_at: row.get("deleted_at"),
                 name: row.get("name"),
                 image_url: row.get("image_url"),
                 description: row.get("description"),
@@ -227,7 +230,7 @@ impl DeploymentWorkspaceListQuery {
 }
 
 impl Query for DeploymentWorkspaceListQuery {
-    type Output = Vec<Workspace>;
+    type Output = Vec<WorkspaceWithOrganizationName>;
 
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let mut query_str = String::from(
@@ -235,9 +238,11 @@ impl Query for DeploymentWorkspaceListQuery {
             SELECT
                 w.id, w.created_at, w.updated_at, w.deleted_at,
                 w.name, w.image_url, w.description, w.member_count,
-                w.public_metadata, w.private_metadata
+                w.public_metadata, w.private_metadata,
+                o.name AS organization_name
             FROM workspaces w
-            WHERE w.deployment_id = $1 AND w.deleted_at IS NULL
+            LEFT JOIN organizations o ON w.organization_id = o.id
+            WHERE w.deployment_id = $1
             "#,
         );
 
@@ -256,18 +261,303 @@ impl Query for DeploymentWorkspaceListQuery {
 
         Ok(rows
             .into_iter()
-            .map(|row| Workspace {
+            .map(|row| WorkspaceWithOrganizationName {
                 id: row.get("id"),
                 created_at: row.get("created_at"),
                 updated_at: row.get("updated_at"),
-                deleted_at: row.get("deleted_at"),
                 name: row.get("name"),
                 image_url: row.get("image_url"),
                 description: row.get("description"),
                 member_count: row.get("member_count"),
-                public_metadata: row.get("public_metadata"),
-                private_metadata: row.get("private_metadata"),
+                organization_name: row.get("organization_name"),
             })
             .collect())
+    }
+}
+
+pub struct GetOrganizationDetailsQuery {
+    deployment_id: i64,
+    organization_id: i64,
+}
+
+impl GetOrganizationDetailsQuery {
+    pub fn new(deployment_id: i64, organization_id: i64) -> Self {
+        Self {
+            deployment_id,
+            organization_id,
+        }
+    }
+}
+
+impl Query for GetOrganizationDetailsQuery {
+    type Output = OrganizationDetails;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        // Get organization basic info
+        let org_row = sqlx::query!(
+            r#"
+            SELECT
+                o.id, o.created_at, o.updated_at,
+                o.name, o.image_url, o.description, o.member_count,
+                o.public_metadata, o.private_metadata
+            FROM organizations o
+            WHERE o.deployment_id = $1 AND o.id = $2
+            "#,
+            self.deployment_id,
+            self.organization_id
+        )
+        .fetch_one(&app_state.db_pool)
+        .await?;
+
+        // Get organization members with user details
+        let member_rows = sqlx::query!(
+            r#"
+            SELECT
+                om.id, om.created_at, om.updated_at,
+                om.organization_id, om.user_id,
+                u.first_name, u.last_name, u.username,
+                u.created_at as user_created_at,
+                e.email_address as "primary_email_address?",
+                p.phone_number as "primary_phone_number?"
+            FROM organization_memberships om
+            JOIN users u ON om.user_id = u.id
+            LEFT JOIN user_email_addresses e ON u.primary_email_address_id = e.id
+            LEFT JOIN user_phone_numbers p ON u.primary_phone_number_id = p.id
+            WHERE om.organization_id = $1
+            "#,
+            self.organization_id
+        )
+        .fetch_all(&app_state.db_pool)
+        .await?;
+
+        // Get organization roles with permissions
+        let role_rows = sqlx::query!(
+            r#"
+            SELECT id, created_at, updated_at, name, permissions
+            FROM organization_roles
+            WHERE organization_id = $1
+            "#,
+            self.organization_id
+        )
+        .fetch_all(&app_state.db_pool)
+        .await?;
+
+        let roles: Vec<OrganizationRole> = role_rows
+            .into_iter()
+            .map(|row| {
+                let permissions_vec: Vec<String> = row.permissions.clone();
+                let permission_objects = permissions_vec
+                    .into_iter()
+                    .enumerate()
+                    .map(
+                        |(i, permission)| crate::core::models::OrganizationPermission {
+                            id: i as i64,
+                            created_at: row.created_at,
+                            updated_at: row.updated_at,
+                            org_role_id: row.id,
+                            permission,
+                        },
+                    )
+                    .collect();
+
+                OrganizationRole {
+                    id: row.id,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    name: row.name,
+                    permissions: permission_objects,
+                }
+            })
+            .collect();
+
+        // Build member details (simplified - in real implementation, you'd need to join with role assignments)
+        let members: Vec<OrganizationMemberDetails> = member_rows
+            .into_iter()
+            .map(|row| OrganizationMemberDetails {
+                id: row.id,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                organization_id: row.organization_id,
+                user_id: row.user_id,
+                roles: vec![], // TODO: Implement role assignment lookup
+                first_name: row.first_name,
+                last_name: row.last_name,
+                username: if row.username.is_empty() {
+                    None
+                } else {
+                    Some(row.username)
+                },
+                primary_email_address: row.primary_email_address,
+                primary_phone_number: row.primary_phone_number,
+                user_created_at: row.user_created_at,
+            })
+            .collect();
+
+        // Get organization workspaces
+        let workspace_rows = sqlx::query!(
+            r#"
+            SELECT
+                id, created_at, updated_at,
+                name, image_url as "image_url?", description as "description?", member_count,
+                public_metadata, private_metadata
+            FROM workspaces
+            WHERE organization_id = $1
+            ORDER BY created_at DESC
+            "#,
+            self.organization_id
+        )
+        .fetch_all(&app_state.db_pool)
+        .await?;
+
+        let workspaces: Vec<Workspace> = workspace_rows
+            .into_iter()
+            .map(|row| Workspace {
+                id: row.id,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                name: row.name,
+                image_url: row.image_url.unwrap_or_default(),
+                description: row.description.unwrap_or_default(),
+                member_count: row.member_count,
+                public_metadata: row.public_metadata,
+                private_metadata: row.private_metadata,
+            })
+            .collect();
+
+        Ok(OrganizationDetails {
+            id: org_row.id,
+            created_at: org_row.created_at,
+            updated_at: org_row.updated_at,
+            name: org_row.name,
+            image_url: org_row.image_url,
+            description: org_row.description.unwrap_or_default(),
+            member_count: org_row.member_count,
+            public_metadata: org_row.public_metadata,
+            private_metadata: org_row.private_metadata,
+            members,
+            roles,
+            workspaces,
+        })
+    }
+}
+
+pub struct GetWorkspaceDetailsQuery {
+    deployment_id: i64,
+    workspace_id: i64,
+}
+
+impl GetWorkspaceDetailsQuery {
+    pub fn new(deployment_id: i64, workspace_id: i64) -> Self {
+        Self {
+            deployment_id,
+            workspace_id,
+        }
+    }
+}
+
+impl Query for GetWorkspaceDetailsQuery {
+    type Output = WorkspaceDetails;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        // Get workspace basic info with organization name
+        let workspace_row = sqlx::query!(
+            r#"
+            SELECT
+                w.id, w.created_at, w.updated_at,
+                w.name, w.image_url, w.description, w.member_count,
+                w.public_metadata, w.private_metadata, w.organization_id,
+                o.name as "organization_name?"
+            FROM workspaces w
+            LEFT JOIN organizations o ON w.organization_id = o.id
+            WHERE w.deployment_id = $1 AND w.id = $2
+            "#,
+            self.deployment_id,
+            self.workspace_id
+        )
+        .fetch_one(&app_state.db_pool)
+        .await?;
+
+        // Get workspace members with user details
+        let member_rows = sqlx::query!(
+            r#"
+            SELECT
+                wm.id, wm.created_at, wm.updated_at,
+                wm.workspace_id, wm.user_id,
+                u.first_name, u.last_name, u.username,
+                u.created_at as user_created_at,
+                e.email_address as "primary_email_address?",
+                p.phone_number as "primary_phone_number?"
+            FROM workspace_memberships wm
+            JOIN users u ON wm.user_id = u.id
+            LEFT JOIN user_email_addresses e ON u.primary_email_address_id = e.id
+            LEFT JOIN user_phone_numbers p ON u.primary_phone_number_id = p.id
+            WHERE wm.workspace_id = $1
+            "#,
+            self.workspace_id
+        )
+        .fetch_all(&app_state.db_pool)
+        .await?;
+
+        // Get workspace roles (simplified - just get basic info for now)
+        let role_rows = sqlx::query!(
+            r#"
+            SELECT id, created_at, updated_at, name
+            FROM workspace_roles
+            WHERE workspace_id = $1
+            "#,
+            self.workspace_id
+        )
+        .fetch_all(&app_state.db_pool)
+        .await?;
+
+        let roles: Vec<WorkspaceRole> = role_rows
+            .into_iter()
+            .map(|row| WorkspaceRole {
+                id: row.id,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                name: row.name,
+                permissions: vec![], // TODO: Implement permission lookup
+            })
+            .collect();
+
+        // Build member details (simplified - in real implementation, you'd need to join with role assignments)
+        let members: Vec<WorkspaceMemberDetails> = member_rows
+            .into_iter()
+            .map(|row| WorkspaceMemberDetails {
+                id: row.id,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                workspace_id: row.workspace_id,
+                user_id: row.user_id,
+                roles: vec![], // TODO: Implement role assignment lookup
+                first_name: row.first_name,
+                last_name: row.last_name,
+                username: if row.username.is_empty() {
+                    None
+                } else {
+                    Some(row.username)
+                },
+                primary_email_address: row.primary_email_address,
+                primary_phone_number: row.primary_phone_number,
+                user_created_at: row.user_created_at,
+            })
+            .collect();
+
+        Ok(WorkspaceDetails {
+            id: workspace_row.id,
+            created_at: workspace_row.created_at,
+            updated_at: workspace_row.updated_at,
+            name: workspace_row.name,
+            image_url: workspace_row.image_url,
+            description: workspace_row.description,
+            member_count: workspace_row.member_count as i32,
+            public_metadata: workspace_row.public_metadata,
+            private_metadata: workspace_row.private_metadata,
+            organization_id: workspace_row.organization_id,
+            organization_name: workspace_row.organization_name.unwrap_or_default(),
+            members,
+            roles,
+        })
     }
 }

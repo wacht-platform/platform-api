@@ -7,7 +7,6 @@ pub struct OrganizationPermission {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub org_role_id: i64,
     pub permission: String,
 }

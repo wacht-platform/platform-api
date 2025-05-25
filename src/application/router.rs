@@ -23,7 +23,61 @@ fn project_routes() -> Router<AppState> {
 
 fn deployment_routes() -> Router<AppState> {
     let routes = Router::new()
-        .route("/users", get(api::deployment::user::get_user_list))
+        .route("/users", get(api::deployment::user::get_active_user_list))
+        .route("/users", post(api::deployment::user::create_user))
+        .route(
+            "/users/{user_id}/details",
+            get(api::deployment::user::get_user_details),
+        )
+        .route(
+            "/users/{user_id}",
+            patch(api::deployment::user::update_user),
+        )
+        .route(
+            "/users/{user_id}/emails",
+            post(api::deployment::user::add_user_email),
+        )
+        .route(
+            "/users/{user_id}/emails/{email_id}",
+            patch(api::deployment::user::update_user_email),
+        )
+        .route(
+            "/users/{user_id}/emails/{email_id}",
+            delete(api::deployment::user::delete_user_email),
+        )
+        .route(
+            "/users/{user_id}/phones",
+            post(api::deployment::user::add_user_phone),
+        )
+        .route(
+            "/users/{user_id}/phones/{phone_id}",
+            patch(api::deployment::user::update_user_phone),
+        )
+        .route(
+            "/users/{user_id}/phones/{phone_id}",
+            delete(api::deployment::user::delete_user_phone),
+        )
+        .route(
+            "/users/{user_id}/social-connections/{connection_id}",
+            delete(api::deployment::user::delete_user_social_connection),
+        )
+        .route(
+            "/invited-users",
+            get(api::deployment::user::get_invited_user_list),
+        )
+        .route("/invited-users", post(api::deployment::user::invite_user))
+        .route(
+            "/user-waitlist",
+            get(api::deployment::user::get_user_waitlist),
+        )
+        .route(
+            "/user-waitlist",
+            post(api::deployment::user::add_to_waitlist),
+        )
+        .route(
+            "/user-waitlist/{waitlist_user_id}/approve",
+            post(api::deployment::user::approve_waitlist_user),
+        )
         .route(
             "/",
             get(api::deployment::settings::get_deployment_with_settings),
@@ -46,12 +100,45 @@ fn deployment_routes() -> Router<AppState> {
         )
         .route("/workspaces", get(api::deployment::b2b::get_workspace_list))
         .route(
+            "/workspaces/{workspace_id}",
+            get(api::deployment::b2b::get_workspace_details),
+        )
+        .route(
             "/workspace-roles",
             get(api::deployment::b2b::get_deployment_workspace_roles),
         )
         .route(
             "/organizations",
-            get(api::deployment::b2b::get_organization_list),
+            get(api::deployment::b2b::get_organization_list)
+                .post(api::deployment::b2b::create_organization),
+        )
+        .route(
+            "/organizations/{organization_id}",
+            get(api::deployment::b2b::get_organization_details)
+                .patch(api::deployment::b2b::update_organization)
+                .delete(api::deployment::b2b::delete_organization),
+        )
+        .route(
+            "/organizations/{organization_id}/workspaces",
+            post(api::deployment::b2b::create_workspace_for_organization),
+        )
+        .route(
+            "/organizations/{organization_id}/members",
+            post(api::deployment::b2b::add_organization_member),
+        )
+        .route(
+            "/organizations/{organization_id}/members/{membership_id}",
+            patch(api::deployment::b2b::update_organization_member)
+                .delete(api::deployment::b2b::remove_organization_member),
+        )
+        .route(
+            "/organizations/{organization_id}/roles",
+            post(api::deployment::b2b::create_organization_role),
+        )
+        .route(
+            "/organizations/{organization_id}/roles/{role_id}",
+            patch(api::deployment::b2b::update_organization_role)
+                .delete(api::deployment::b2b::delete_organization_role),
         )
         .route(
             "/organization-roles",

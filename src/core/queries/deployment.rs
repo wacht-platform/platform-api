@@ -33,7 +33,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployments.id,
                 deployments.created_at,
                 deployments.updated_at,
-                deployments.deleted_at,
                 deployments.maintenance_mode,
                 deployments.backend_host,
                 deployments.frontend_host,
@@ -44,7 +43,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_auth_settings.id as "auth_settings_id?",
                 deployment_auth_settings.created_at as "auth_settings_created_at?",
                 deployment_auth_settings.updated_at as "auth_settings_updated_at?",
-                deployment_auth_settings.deleted_at as "auth_settings_deleted_at?",
                 deployment_auth_settings.email_address::jsonb as "email_address?",
                 deployment_auth_settings.phone_number::jsonb as "phone_number?",
                 deployment_auth_settings.username::jsonb as username,
@@ -65,7 +63,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_ui_settings.id as "ui_settings_id?",
                 deployment_ui_settings.created_at as "ui_settings_created_at?",
                 deployment_ui_settings.updated_at as "ui_settings_updated_at?",
-                deployment_ui_settings.deleted_at as "ui_settings_deleted_at?",
                 deployment_ui_settings.app_name,
                 deployment_ui_settings.tos_page_url,
                 deployment_ui_settings.sign_in_page_url,
@@ -94,7 +91,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployment_b2b_settings.id as "b2b_settings_id?",
                 deployment_b2b_settings.created_at as "b2b_settings_created_at?",
                 deployment_b2b_settings.updated_at as "b2b_settings_updated_at?",
-                deployment_b2b_settings.deleted_at as "b2b_settings_deleted_at?",
                 deployment_b2b_settings.organizations_enabled as "b2b_settings_organizations_enabled?",
                 deployment_b2b_settings.workspaces_enabled as "b2b_settings_workspaces_enabled?",
                 deployment_b2b_settings.ip_allowlist_per_org_enabled as "b2b_settings_ip_allowlist_per_org_enabled?",
@@ -117,32 +113,27 @@ impl Query for GetDeploymentWithSettingsQuery {
 
                 deployment_default_workspace_creator_role.created_at as "default_workspace_creator_role_created_at?",
                 deployment_default_workspace_creator_role.updated_at as "default_workspace_creator_role_updated_at?",
-                deployment_default_workspace_creator_role.deleted_at as "default_workspace_creator_role_deleted_at?",
                 deployment_default_workspace_creator_role.name as "default_workspace_creator_role_name?",
                 deployment_default_workspace_creator_role.permissions as "default_workspace_creator_role_permissions?",
 
                 deployment_default_workspace_member_role.created_at as "default_workspace_member_role_created_at?",
                 deployment_default_workspace_member_role.updated_at as "default_workspace_member_role_updated_at?",
-                deployment_default_workspace_member_role.deleted_at as "default_workspace_member_role_deleted_at?",
                 deployment_default_workspace_member_role.name as "default_workspace_member_role_name?",
                 deployment_default_workspace_member_role.permissions as "default_workspace_member_role_permissions?",
 
                 deployment_default_org_creator_role.created_at as "default_org_creator_role_created_at?",
                 deployment_default_org_creator_role.updated_at as "default_org_creator_role_updated_at?",
-                deployment_default_org_creator_role.deleted_at as "default_org_creator_role_deleted_at?",
                 deployment_default_org_creator_role.name as "default_org_creator_role_name?",
                 deployment_default_org_creator_role.permissions as "default_org_creator_role_permissions?",
 
                 deployment_default_org_member_role.created_at as "default_org_member_role_created_at?",
                 deployment_default_org_member_role.updated_at as "default_org_member_role_updated_at?",
-                deployment_default_org_member_role.deleted_at as "default_org_member_role_deleted_at?",
                 deployment_default_org_member_role.name as "default_org_member_role_name?",
                 deployment_default_org_member_role.permissions as "default_org_member_role_permissions?",
 
                 deployment_restrictions.id as "restrictions_id?",
                 deployment_restrictions.created_at as "restrictions_created_at?",
                 deployment_restrictions.updated_at as "restrictions_updated_at?",
-                deployment_restrictions.deleted_at as "restrictions_deleted_at?",
                 deployment_restrictions.allowlist_enabled,
                 deployment_restrictions.blocklist_enabled,
                 deployment_restrictions.block_subaddresses,
@@ -157,29 +148,21 @@ impl Query for GetDeploymentWithSettingsQuery {
             FROM deployments
             LEFT JOIN deployment_auth_settings
                 ON deployments.id = deployment_auth_settings.deployment_id
-                AND deployment_auth_settings.deleted_at IS NULL
             LEFT JOIN deployment_ui_settings
                 ON deployments.id = deployment_ui_settings.deployment_id
-                AND deployment_ui_settings.deleted_at IS NULL
             LEFT JOIN deployment_restrictions
                 ON deployments.id = deployment_restrictions.deployment_id
-                AND deployment_restrictions.deleted_at IS NULL
             LEFT JOIN deployment_b2b_settings
                 ON deployments.id = deployment_b2b_settings.deployment_id
-                AND deployment_b2b_settings.deleted_at IS NULL
             LEFT JOIN workspace_roles AS deployment_default_workspace_creator_role
                 ON deployment_default_workspace_creator_role.id = deployment_b2b_settings.default_workspace_creator_role_id
-                AND deployment_default_workspace_creator_role.deleted_at IS NULL
             LEFT JOIN workspace_roles AS deployment_default_workspace_member_role
                 ON deployment_default_workspace_member_role.id = deployment_b2b_settings.default_workspace_member_role_id
-                AND deployment_default_workspace_member_role.deleted_at IS NULL
             LEFT JOIN organization_roles AS deployment_default_org_creator_role
                 ON deployment_default_org_creator_role.id = deployment_b2b_settings.default_org_creator_role_id
-                AND deployment_default_org_creator_role.deleted_at IS NULL
             LEFT JOIN organization_roles AS deployment_default_org_member_role
                 ON deployment_default_org_member_role.id = deployment_b2b_settings.default_org_member_role_id
-                AND deployment_default_org_member_role.deleted_at IS NULL
-            WHERE deployments.id = $1 AND deployments.deleted_at IS NULL
+            WHERE deployments.id = $1
             "#,
             self.deployment_id,
         )
@@ -201,7 +184,6 @@ impl Query for GetDeploymentWithSettingsQuery {
             id: row.id,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            deleted_at: row.deleted_at,
             maintenance_mode: row.maintenance_mode,
             backend_host: row.backend_host,
             frontend_host: row.frontend_host,
@@ -214,7 +196,6 @@ impl Query for GetDeploymentWithSettingsQuery {
 
                     created_at: row.auth_settings_created_at,
                     updated_at: row.auth_settings_updated_at,
-                    deleted_at: row.auth_settings_deleted_at,
                     email_address: serde_json::from_value(row.email_address.unwrap_or_default())
                         .unwrap(),
                     phone_number: serde_json::from_value(row.phone_number.unwrap_or_default())
@@ -244,7 +225,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                     id: row.ui_settings_id.unwrap(),
                     created_at: row.ui_settings_created_at,
                     updated_at: row.ui_settings_updated_at,
-                    deleted_at: row.ui_settings_deleted_at,
                     deployment_id: self.deployment_id,
                     app_name: row.app_name,
                     tos_page_url: row.tos_page_url,
@@ -282,7 +262,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                     id: row.restrictions_id.unwrap(),
                     created_at: row.restrictions_created_at,
                     updated_at: row.restrictions_updated_at,
-                    deleted_at: row.restrictions_deleted_at,
                     deployment_id: self.deployment_id,
                     allowlist_enabled: row.allowlist_enabled,
                     blocklist_enabled: row.blocklist_enabled,
@@ -304,7 +283,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                     id: row.b2b_settings_id.unwrap(),
                     created_at: row.b2b_settings_created_at.unwrap(),
                     updated_at: row.b2b_settings_updated_at.unwrap(),
-                    deleted_at: row.b2b_settings_deleted_at,
                     deployment_id: self.deployment_id,
                     organizations_enabled: row.b2b_settings_organizations_enabled.unwrap(),
                     workspaces_enabled: row.b2b_settings_workspaces_enabled.unwrap(),
@@ -354,7 +332,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                         id: row.b2b_settings_default_workspace_creator_role_id.unwrap(),
                         created_at: row.default_workspace_creator_role_created_at.unwrap(),
                         updated_at: row.default_workspace_creator_role_updated_at.unwrap(),
-                        deleted_at: row.default_workspace_creator_role_deleted_at,
                         name: row.default_workspace_creator_role_name.unwrap_or_default(),
                         permissions: row
                             .default_workspace_creator_role_permissions
@@ -367,7 +344,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                         id: row.b2b_settings_default_workspace_member_role_id.unwrap(),
                         created_at: row.default_workspace_member_role_created_at.unwrap(),
                         updated_at: row.default_workspace_member_role_updated_at.unwrap(),
-                        deleted_at: row.default_workspace_member_role_deleted_at,
                         name: row.default_workspace_member_role_name.unwrap_or_default(),
                         permissions: row
                             .default_workspace_member_role_permissions
@@ -380,7 +356,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                         id: row.b2b_settings_default_org_creator_role_id.unwrap(),
                         created_at: row.default_org_creator_role_created_at.unwrap(),
                         updated_at: row.default_org_creator_role_updated_at.unwrap(),
-                        deleted_at: row.default_org_creator_role_deleted_at,
                         name: row.default_org_creator_role_name.unwrap_or_default(),
                         permissions: row.default_org_creator_role_permissions.unwrap_or_default(),
                         deployment_id: self.deployment_id,
@@ -390,7 +365,6 @@ impl Query for GetDeploymentWithSettingsQuery {
                         id: row.b2b_settings_default_org_member_role_id.unwrap(),
                         created_at: row.default_org_member_role_created_at.unwrap(),
                         updated_at: row.default_org_member_role_updated_at.unwrap(),
-                        deleted_at: row.default_org_member_role_deleted_at,
                         name: row.default_org_member_role_name.unwrap_or_default(),
                         permissions: row.default_org_member_role_permissions.unwrap_or_default(),
                         deployment_id: self.deployment_id,
@@ -424,13 +398,12 @@ impl Query for GetDeploymentSocialConnectionsQuery {
                 id,
                 created_at,
                 updated_at,
-                deleted_at,
                 deployment_id,
                 provider,
                 enabled,
                 credentials
             FROM deployment_social_connections
-            WHERE deployment_id = $1 AND deleted_at IS NULL
+            WHERE deployment_id = $1
             "#,
             self.deployment_id,
         )
@@ -443,7 +416,6 @@ impl Query for GetDeploymentSocialConnectionsQuery {
                 id: row.id,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
-                deleted_at: row.deleted_at,
                 deployment_id: row.deployment_id,
                 provider: row.provider.map(|s| FromStr::from_str(&s).unwrap()),
                 enabled: row.enabled,
@@ -475,7 +447,6 @@ impl Query for GetDeploymentJwtTemplatesQuery {
                 id,
                 created_at,
                 updated_at,
-                deleted_at,
                 deployment_id,
                 name,
                 token_lifetime,
@@ -483,7 +454,7 @@ impl Query for GetDeploymentJwtTemplatesQuery {
                 custom_signing_key,
                 template
             FROM deployment_jwt_templates
-            WHERE deployment_id = $1 AND deleted_at IS NULL
+            WHERE deployment_id = $1
             "#,
             self.deployment_id,
         )
@@ -496,7 +467,6 @@ impl Query for GetDeploymentJwtTemplatesQuery {
                 id: row.id,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
-                deleted_at: row.deleted_at,
                 deployment_id: row.deployment_id,
                 name: row.name,
                 token_lifetime: row.token_lifetime,
@@ -534,7 +504,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::OrganizationInviteTemplate => {
                 let row = query!(
                     r#"
-                    SELECT organization_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT organization_invite_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -546,7 +516,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::VerificationCodeTemplate => {
                 let row = query!(
                     r#"
-                    SELECT verification_code_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT verification_code_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -558,7 +528,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::ResetPasswordCodeTemplate => {
                 let row = query!(
                     r#"
-                    SELECT reset_password_code_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT reset_password_code_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -570,7 +540,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::PrimaryEmailChangeTemplate => {
                 let row = query!(
                     r#"
-                    SELECT primary_email_change_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT primary_email_change_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -582,7 +552,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::PasswordChangeTemplate => {
                 let row = query!(
                     r#"
-                    SELECT password_change_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT password_change_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -594,7 +564,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::PasswordRemoveTemplate => {
                 let row = query!(
                     r#"
-                    SELECT password_remove_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT password_remove_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -606,7 +576,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::SignInFromNewDeviceTemplate => {
                 let row = query!(
                     r#"
-                    SELECT sign_in_from_new_device_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT sign_in_from_new_device_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -618,7 +588,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::MagicLinkTemplate => {
                 let row = query!(
                     r#"
-                    SELECT magic_link_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT magic_link_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -630,7 +600,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::WaitlistSignupTemplate => {
                 let row = query!(
                     r#"
-                    SELECT waitlist_signup_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT waitlist_signup_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -642,7 +612,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::WaitlistInviteTemplate => {
                 let row = query!(
                     r#"
-                    SELECT waitlist_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT waitlist_invite_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )
@@ -654,7 +624,7 @@ impl Query for GetDeploymentEmailTemplateQuery {
             DeploymentNameParams::WorkspaceInviteTemplate => {
                 let row = query!(
                     r#"
-                    SELECT workspace_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL
+                    SELECT workspace_invite_template FROM deployment_email_templates WHERE deployment_id = $1
                     "#,
                     self.deployment_id,
                 )

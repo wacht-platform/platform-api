@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgTypeInfo;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -52,6 +53,20 @@ impl From<SocialConnectionProvider> for String {
     }
 }
 
+// Implement sqlx::Type and sqlx::Decode for SocialConnectionProvider
+impl sqlx::Type<sqlx::Postgres> for SocialConnectionProvider {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("TEXT")
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for SocialConnectionProvider {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let value = <&str as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
+        SocialConnectionProvider::from_str(value).map_err(|e| e.into())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct OauthCredentials {
     pub client_id: String,
@@ -66,7 +81,6 @@ pub struct DeploymentSocialConnection {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub deployment_id: Option<i64>,
     pub provider: Option<SocialConnectionProvider>,
     pub enabled: bool,

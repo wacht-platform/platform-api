@@ -7,7 +7,6 @@ pub struct DeploymentKeyPair {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub deployment_id: i64,
     pub public_key: String,
     pub private_key: String,

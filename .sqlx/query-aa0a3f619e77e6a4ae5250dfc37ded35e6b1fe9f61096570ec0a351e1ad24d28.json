@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT magic_link_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "query": "\n                    SELECT magic_link_template FROM deployment_email_templates WHERE deployment_id = $1\n                    ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "b595da6492bbb74748c2e055846032f2143ab4c43a7ba08e18dae8819b7416bb"
+  "hash": "aa0a3f619e77e6a4ae5250dfc37ded35e6b1fe9f61096570ec0a351e1ad24d28"
 }

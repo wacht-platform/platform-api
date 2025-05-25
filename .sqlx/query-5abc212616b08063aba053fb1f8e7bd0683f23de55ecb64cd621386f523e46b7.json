@@ -20,31 +20,26 @@
       },
       {
         "ordinal": 3,
-        "name": "deleted_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 4,
         "name": "organization_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "name",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "permissions",
         "type_info": "TextArray"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "deployment_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "workspace_id",
         "type_info": "Int8"
       }
@@ -58,7 +53,6 @@
       false,
       false,
       false,
-      true,
       true,
       false,
       false,

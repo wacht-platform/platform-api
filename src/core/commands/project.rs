@@ -58,7 +58,6 @@ impl CreateProjectWithStagingDeploymentCommand {
             private_key: pair.serialize_pem(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
-            deleted_at: None,
         })
     }
 
@@ -791,7 +790,6 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             id: deployment_row.id,
             created_at: deployment_row.created_at,
             updated_at: deployment_row.updated_at,
-            deleted_at: deployment_row.deleted_at,
             maintenance_mode: deployment_row.maintenance_mode,
             backend_host: deployment_row.backend_host,
             frontend_host: deployment_row.frontend_host,
@@ -806,7 +804,6 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             image_url: project_row.image_url,
             created_at: project_row.created_at,
             updated_at: project_row.updated_at,
-            deleted_at: project_row.deleted_at,
             name: project_row.name,
             deployments: vec![deployment],
         })
@@ -843,11 +840,9 @@ impl Command for DeleteProjectCommand {
         for deployment in &deployments {
             sqlx::query!(
                 r#"
-                UPDATE deployment_social_connections
-                SET deleted_at = $1
-                WHERE deployment_id = $2 AND deleted_at IS NULL
+                DELETE FROM deployment_social_connections
+                WHERE deployment_id = $1
                 "#,
-                chrono::Utc::now(),
                 deployment.id
             )
             .execute(&mut *tx)
@@ -857,11 +852,9 @@ impl Command for DeleteProjectCommand {
         for deployment in &deployments {
             sqlx::query!(
                 r#"
-                UPDATE deployment_auth_settings
-                SET deleted_at = $1
-                WHERE deployment_id = $2 AND deleted_at IS NULL
+                DELETE FROM deployment_auth_settings
+                WHERE deployment_id = $1
                 "#,
-                chrono::Utc::now(),
                 deployment.id
             )
             .execute(&mut *tx)
@@ -871,11 +864,9 @@ impl Command for DeleteProjectCommand {
         for deployment in &deployments {
             sqlx::query!(
                 r#"
-                UPDATE deployment_ui_settings
-                SET deleted_at = $1
-                WHERE deployment_id = $2 AND deleted_at IS NULL
+                DELETE FROM deployment_ui_settings
+                WHERE deployment_id = $1
                 "#,
-                chrono::Utc::now(),
                 deployment.id
             )
             .execute(&mut *tx)
@@ -885,11 +876,21 @@ impl Command for DeleteProjectCommand {
         for deployment in &deployments {
             sqlx::query!(
                 r#"
-                UPDATE deployment_b2b_settings
-                SET deleted_at = $1
-                WHERE deployment_id = $2 AND deleted_at IS NULL
+                DELETE FROM deployment_b2b_settings
+                WHERE deployment_id = $1
                 "#,
-                chrono::Utc::now(),
+                deployment.id
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        for deployment in &deployments {
+            sqlx::query!(
+                r#"
+                DELETE FROM deployment_b2b_settings
+                WHERE deployment_id = $1
+                "#,
                 deployment.id
             )
             .execute(&mut *tx)
@@ -898,11 +899,9 @@ impl Command for DeleteProjectCommand {
 
         sqlx::query!(
             r#"
-            UPDATE deployments
-            SET deleted_at = $1
-            WHERE project_id = $2 AND deleted_at IS NULL
+            DELETE FROM deployments
+            WHERE project_id = $1
             "#,
-            chrono::Utc::now(),
             self.id
         )
         .execute(&mut *tx)
@@ -910,11 +909,9 @@ impl Command for DeleteProjectCommand {
 
         sqlx::query!(
             r#"
-            UPDATE projects
-            SET deleted_at = $1
-            WHERE id = $2 AND deleted_at IS NULL
+            DELETE FROM projects
+            WHERE id = $1
             "#,
-            chrono::Utc::now(),
             self.id
         )
         .execute(&mut *tx)

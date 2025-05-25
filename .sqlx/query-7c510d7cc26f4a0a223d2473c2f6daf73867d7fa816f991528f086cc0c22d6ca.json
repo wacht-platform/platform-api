@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT organization_invite_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "query": "\n                    SELECT organization_invite_template FROM deployment_email_templates WHERE deployment_id = $1\n                    ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "fefad98a583e96da69e8471ce2e1fadf8e26b39be70c2dea2f06102e9c18820f"
+  "hash": "7c510d7cc26f4a0a223d2473c2f6daf73867d7fa816f991528f086cc0c22d6ca"
 }

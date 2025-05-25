@@ -267,7 +267,6 @@ impl Command for UpsertDeploymentSocialConnectionCommand {
             id: result.id,
             created_at: result.created_at,
             updated_at: result.updated_at,
-            deleted_at: result.deleted_at,
             deployment_id: result.deployment_id,
             provider: SocialConnectionProvider::from_str(&result.provider.unwrap()).ok(),
             enabled: result.enabled,
@@ -407,7 +406,6 @@ impl Command for CreateDeploymentJwtTemplateCommand {
                 .custom_signing_key
                 .map(|v| serde_json::from_value(v).unwrap_or_default()),
             template: serde_json::from_value(result.template).unwrap_or_default(),
-            deleted_at: result.deleted_at,
         };
         Ok(template)
     }
@@ -474,7 +472,6 @@ impl Command for UpdateDeploymentJwtTemplateCommand {
             custom_signing_key: serde_json::from_value(result.get("custom_signing_key"))
                 .unwrap_or_default(),
             template: result.get("template"),
-            deleted_at: result.get("deleted_at"),
         };
 
         Ok(template)

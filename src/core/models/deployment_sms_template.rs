@@ -11,7 +11,6 @@ pub struct DeploymentSmsTemplate {
     pub password_remove_template: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl Default for DeploymentSmsTemplate {
@@ -27,7 +26,6 @@ impl Default for DeploymentSmsTemplate {
             password_remove_template: "Your {{app_name}} password has been removed".to_string(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
-            deleted_at: None,
         }
     }
 }

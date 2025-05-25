@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT password_remove_template FROM deployment_email_templates WHERE deployment_id = $1 AND deleted_at IS NULL\n                    ",
+  "query": "\n                    SELECT password_remove_template FROM deployment_email_templates WHERE deployment_id = $1\n                    ",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "a0fd5ffd8f9e51a608ce9e459fb45dc0ef2e33dd46ef831afac62921568cfd9b"
+  "hash": "2531596ab666de562784ec4f64cf6833a780d2518309e7c9b030a42f30df729b"
 }

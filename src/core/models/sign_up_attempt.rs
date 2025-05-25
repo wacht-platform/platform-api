@@ -21,7 +21,6 @@ pub struct SignupAttempt {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub session_id: i64,
     pub first_name: String,
     pub last_name: String,

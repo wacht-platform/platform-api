@@ -31,7 +31,6 @@ impl GetProjectsWithDeploymentQuery {
             updated_at: row
                 .get::<Option<_>, _>("deployment_updated_at")
                 .unwrap_or_default(),
-            deleted_at: row.get("deployment_deleted_at"),
             maintenance_mode: row
                 .get::<Option<bool>, _>("deployment_maintenance_mode")
                 .unwrap_or_default(),
@@ -64,17 +63,16 @@ impl Query for GetProjectsWithDeploymentQuery {
         let rows = query(
             r#"
             SELECT
-                p.id, p.created_at, p.updated_at, p.deleted_at, p.name, p.image_url,
+                p.id, p.created_at, p.updated_at,p.name, p.image_url,
                 d.id as deployment_id, d.created_at as deployment_created_at,
-                d.updated_at as deployment_updated_at, d.deleted_at as deployment_deleted_at,
+                d.updated_at as deployment_updated_at,
                 d.maintenance_mode as deployment_maintenance_mode, d.backend_host as deployment_backend_host,
                 d.frontend_host as deployment_frontend_host,
                 d.publishable_key as deployment_publishable_key,
                 d.project_id as deployment_project_id, d.mode as deployment_mode,
                 d.mail_from_host as deployment_mail_from_host
             FROM projects p
-            LEFT JOIN deployments d ON p.id = d.project_id AND d.deleted_at IS NULL
-            WHERE p.deleted_at IS NULL
+            LEFT JOIN deployments d ON p.id = d.project_id
             ORDER BY p.id DESC
             "#,
         )
@@ -105,7 +103,6 @@ impl Query for GetProjectsWithDeploymentQuery {
                         image_url: row.get("image_url"),
                         created_at: row.get("created_at"),
                         updated_at: row.get("updated_at"),
-                        deleted_at: row.get("deleted_at"),
                         name: row.get("name"),
                         deployments,
                     },

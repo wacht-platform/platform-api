@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgTypeInfo;
 
 use crate::application::AppError;
 
@@ -107,6 +108,20 @@ impl ToString for SecondFactorPolicy {
             SecondFactorPolicy::Optional => "optional".to_string(),
             SecondFactorPolicy::Enforced => "enforced".to_string(),
         }
+    }
+}
+
+// Implement sqlx::Type and sqlx::Decode for SecondFactorPolicy
+impl sqlx::Type<sqlx::Postgres> for SecondFactorPolicy {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("TEXT")
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for SecondFactorPolicy {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let value = <&str as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
+        SecondFactorPolicy::from_str(value).map_err(|e| e.into())
     }
 }
 
@@ -312,7 +327,6 @@ pub struct DeploymentAuthSettings {
     pub id: i64,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub deleted_at: Option<DateTime<Utc>>,
     pub email_address: EmailSettings,
     pub phone_number: PhoneSettings,
     pub username: UsernameSettings,
@@ -338,7 +352,6 @@ impl Default for DeploymentAuthSettings {
             id: 0,
             created_at: None,
             updated_at: None,
-            deleted_at: None,
             email_address: EmailSettings::default(),
             phone_number: PhoneSettings::default(),
             username: UsernameSettings::default(),
