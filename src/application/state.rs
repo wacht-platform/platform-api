@@ -6,6 +6,8 @@ use aws_sdk_sesv2::Client as SesClient;
 use redis::Client as RedisClient;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
+use crate::utils::handlebars_helpers;
+
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: PgPool,
@@ -13,6 +15,7 @@ pub struct AppState {
     pub sf: sonyflake::Sonyflake,
     pub redis_client: RedisClient,
     pub ses_client: SesClient,
+    pub handlebars: handlebars::Handlebars<'static>,
 }
 
 impl AppState {
@@ -66,12 +69,17 @@ impl AppState {
             RedisClient::open(std::env::var("REDIS_URL").expect("REDIS_URL must be set"))
                 .expect("Failed to create Redis client");
 
+        let mut handlebars = handlebars::Handlebars::new();
+
+        handlebars.register_helper("image", Box::new(handlebars_helpers::ImageHelper));
+
         Self {
             db_pool: pool,
             s3_client,
             sf,
             redis_client,
             ses_client,
+            handlebars,
         }
     }
 }

@@ -1,5 +1,4 @@
 use aws_sdk_sesv2::types::{Body, Content, Destination, EmailContent, Message};
-use handlebars::Handlebars;
 use std::collections::HashMap;
 
 use crate::{
@@ -36,23 +35,20 @@ impl Command for SendEmailCommand {
     type Output = ();
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
-        // Get the email template
         let template = GetEmailTemplateByNameQuery::new(self.deployment_id, self.template_name)
             .execute(app_state)
             .await?;
 
-        // Render the template
-        let handlebars = Handlebars::new();
-
-        let subject = handlebars
+        let subject = app_state
+            .handlebars
             .render_template(&template.template_subject, &self.variables)
             .map_err(|e| AppError::BadRequest(format!("Failed to render subject: {}", e)))?;
 
-        let body_html = handlebars
+        let body_html = app_state
+            .handlebars
             .render_template(&template.template_data, &self.variables)
             .map_err(|e| AppError::BadRequest(format!("Failed to render body: {}", e)))?;
 
-        // Prepare the email
         let from_email = format!("{}@wacht.services", template.template_from);
 
         let destination = Destination::builder().to_addresses(&self.to_email).build();
@@ -78,7 +74,6 @@ impl Command for SendEmailCommand {
 
         let email_content = EmailContent::builder().simple(message).build();
 
-        // Send the email using SES client from app_state
         app_state
             .ses_client
             .send_email()
