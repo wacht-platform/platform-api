@@ -71,10 +71,6 @@ fn deployment_routes() -> Router<AppState> {
             get(api::deployment::user::get_user_waitlist),
         )
         .route(
-            "/user-waitlist",
-            post(api::deployment::user::add_to_waitlist),
-        )
-        .route(
             "/user-waitlist/{waitlist_user_id}/approve",
             post(api::deployment::user::approve_waitlist_user),
         )

@@ -120,10 +120,8 @@ impl Command for UpdateUserEmailCommand {
     type Output = UserEmailAddress;
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
-        // Handle primary email logic first
         if let Some(is_primary) = self.request.is_primary {
             if is_primary {
-                // Unset other primary emails first
                 sqlx::query!(
                     "UPDATE user_email_addresses SET is_primary = false WHERE user_id = $1",
                     self.user_id
@@ -133,7 +131,6 @@ impl Command for UpdateUserEmailCommand {
             }
         }
 
-        // Update the email with provided fields
         match (
             &self.request.email,
             self.request.verified,
@@ -247,7 +244,6 @@ impl Command for UpdateUserEmailCommand {
                 .await?;
             }
             (None, None, None) => {
-                // Just update the timestamp
                 sqlx::query!(
                     r#"
                     UPDATE user_email_addresses
@@ -262,7 +258,6 @@ impl Command for UpdateUserEmailCommand {
             }
         }
 
-        // Fetch and return the updated email
         let row = sqlx::query!(
             r#"
             SELECT id, created_at, updated_at, deployment_id, user_id,

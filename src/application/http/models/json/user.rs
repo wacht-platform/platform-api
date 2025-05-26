@@ -5,7 +5,7 @@ use serde_json::Value;
 pub struct CreateUserRequest {
     pub first_name: String,
     pub last_name: String,
-    pub email_address: String,
+    pub email_address: Option<String>,
     pub phone_number: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
@@ -16,14 +16,7 @@ pub struct InviteUserRequest {
     pub first_name: String,
     pub last_name: String,
     pub email_address: String,
-    pub expiry_days: Option<i64>, // Optional, defaults to 7 days
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AddToWaitlistRequest {
-    pub first_name: String,
-    pub last_name: String,
-    pub email_address: String,
+    pub expiry_days: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

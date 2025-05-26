@@ -2,18 +2,18 @@ use crate::{
     application::{
         AppState,
         http::models::json::{
-            AddEmailRequest, AddPhoneRequest, AddToWaitlistRequest, CreateUserRequest,
-            InviteUserRequest, UpdateEmailRequest, UpdatePhoneRequest, UpdateUserRequest,
+            AddEmailRequest, AddPhoneRequest, CreateUserRequest, InviteUserRequest,
+            UpdateEmailRequest, UpdatePhoneRequest, UpdateUserRequest,
         },
         query::{ActiveUserListQueryParams, InvitationsWaitlistQueryParams},
         response::{ApiResult, PaginatedResponse},
     },
     core::{
         commands::{
-            AddToWaitlistCommand, AddUserEmailCommand, AddUserPhoneCommand,
-            ApproveWaitlistUserCommand, Command, CreateUserCommand, DeleteUserEmailCommand,
-            DeleteUserPhoneCommand, DeleteUserSocialConnectionCommand, InviteUserCommand,
-            UpdateUserCommand, UpdateUserEmailCommand, UpdateUserPhoneCommand,
+            AddUserEmailCommand, AddUserPhoneCommand, ApproveWaitlistUserCommand, Command,
+            CreateUserCommand, DeleteUserEmailCommand, DeleteUserPhoneCommand,
+            DeleteUserSocialConnectionCommand, InviteUserCommand, UpdateUserCommand,
+            UpdateUserEmailCommand, UpdateUserPhoneCommand,
         },
         models::{
             DeploymentInvitation, DeploymentWaitlistUser, UserDetails, UserEmailAddress,
@@ -143,27 +143,15 @@ pub async fn invite_user(
     Ok(invitation.into())
 }
 
-pub async fn add_to_waitlist(
-    State(app_state): State<AppState>,
-    Path(deployment_id): Path<i64>,
-    Json(request): Json<AddToWaitlistRequest>,
-) -> ApiResult<DeploymentWaitlistUser> {
-    let waitlist_user = AddToWaitlistCommand::new(deployment_id, request)
-        .execute(&app_state)
-        .await?;
-
-    Ok(waitlist_user.into())
-}
-
 pub async fn approve_waitlist_user(
     State(app_state): State<AppState>,
     Path((deployment_id, waitlist_user_id)): Path<(i64, i64)>,
-) -> ApiResult<UserWithIdentifiers> {
-    let user = ApproveWaitlistUserCommand::new(deployment_id, waitlist_user_id)
+) -> ApiResult<DeploymentInvitation> {
+    let invitation = ApproveWaitlistUserCommand::new(deployment_id, waitlist_user_id)
         .execute(&app_state)
         .await?;
 
-    Ok(user.into())
+    Ok(invitation.into())
 }
 
 pub async fn update_user(

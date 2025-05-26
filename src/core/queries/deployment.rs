@@ -9,7 +9,7 @@ use crate::{
         DeploymentWithSettings, DeploymentWorkspaceRole, EmailTemplate,
     },
 };
-use sqlx::query;
+use sqlx::{Row, query};
 
 use super::Query;
 
@@ -636,5 +636,101 @@ impl Query for GetDeploymentEmailTemplateQuery {
         };
 
         Ok(serde_json::from_value(template)?)
+    }
+}
+
+// Helper query for getting specific email templates by name
+pub struct GetEmailTemplateByNameQuery {
+    deployment_id: i64,
+    template_name: String,
+}
+
+impl GetEmailTemplateByNameQuery {
+    pub fn new(deployment_id: i64, template_name: String) -> Self {
+        Self {
+            deployment_id,
+            template_name,
+        }
+    }
+}
+
+impl Query for GetEmailTemplateByNameQuery {
+    type Output = EmailTemplate;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        let query_str = format!(
+            "SELECT {} FROM deployment_email_templates WHERE deployment_id = $1",
+            self.template_name
+        );
+
+        let row = sqlx::query(&query_str)
+            .bind(self.deployment_id)
+            .fetch_one(&app_state.db_pool)
+            .await?;
+
+        let template_json: serde_json::Value = row.get(self.template_name.as_str());
+        let template: EmailTemplate = serde_json::from_value(template_json)
+            .map_err(|e| AppError::BadRequest(format!("Failed to parse email template: {}", e)))?;
+
+        Ok(template)
+    }
+}
+
+// Query for getting deployment auth settings
+pub struct GetDeploymentAuthSettingsQuery {
+    deployment_id: i64,
+}
+
+impl GetDeploymentAuthSettingsQuery {
+    pub fn new(deployment_id: i64) -> Self {
+        Self { deployment_id }
+    }
+}
+
+impl Query for GetDeploymentAuthSettingsQuery {
+    type Output = crate::core::models::DeploymentAuthSettings;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT
+                id, created_at, updated_at, deployment_id,
+                email_address, phone_number, username, first_name, last_name,
+                password, magic_link, passkey, auth_factors_enabled,
+                verification_policy, second_factor_policy, first_factor,
+                multi_session_support, session_token_lifetime, session_validity_period,
+                session_inactive_timeout
+            FROM deployment_auth_settings
+            WHERE deployment_id = $1
+            "#,
+            self.deployment_id
+        )
+        .fetch_one(&app_state.db_pool)
+        .await?;
+
+        let auth_settings = crate::core::models::DeploymentAuthSettings {
+            id: row.id,
+            created_at: Some(row.created_at),
+            updated_at: Some(row.updated_at),
+            deployment_id: row.deployment_id,
+            email_address: serde_json::from_value(row.email_address)?,
+            phone_number: serde_json::from_value(row.phone_number)?,
+            username: serde_json::from_value(row.username)?,
+            first_name: serde_json::from_value(row.first_name)?,
+            last_name: serde_json::from_value(row.last_name)?,
+            password: serde_json::from_value(row.password)?,
+            magic_link: serde_json::from_value(row.magic_link).ok(),
+            passkey: serde_json::from_value(row.passkey).ok(),
+            auth_factors_enabled: serde_json::from_value(row.auth_factors_enabled)?,
+            verification_policy: serde_json::from_value(row.verification_policy)?,
+            second_factor_policy: serde_json::from_str(&row.second_factor_policy)?,
+            first_factor: serde_json::from_str(&row.first_factor)?,
+            multi_session_support: serde_json::from_value(row.multi_session_support)?,
+            session_token_lifetime: row.session_token_lifetime,
+            session_validity_period: row.session_validity_period,
+            session_inactive_timeout: row.session_inactive_timeout,
+        };
+
+        Ok(auth_settings)
     }
 }
