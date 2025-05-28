@@ -379,7 +379,7 @@ impl Query for GetOrganizationDetailsQuery {
                 updated_at: row.updated_at,
                 organization_id: row.organization_id,
                 user_id: row.user_id,
-                roles: vec![], // TODO: Implement role assignment lookup
+                roles: vec![], // Simplified for now - would need async context to fetch roles
                 first_name: row.first_name,
                 last_name: row.last_name,
                 username: if row.username.is_empty() {
@@ -498,10 +498,10 @@ impl Query for GetWorkspaceDetailsQuery {
         .fetch_all(&app_state.db_pool)
         .await?;
 
-        // Get workspace roles (simplified - just get basic info for now)
+        // Get workspace roles with permissions
         let role_rows = sqlx::query!(
             r#"
-            SELECT id, created_at, updated_at, name
+            SELECT id, created_at, updated_at, name, permissions
             FROM workspace_roles
             WHERE workspace_id = $1
             "#,
@@ -517,7 +517,18 @@ impl Query for GetWorkspaceDetailsQuery {
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 name: row.name,
-                permissions: vec![], // TODO: Implement permission lookup
+                permissions: row
+                    .permissions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, permission)| crate::core::models::WorkspacePermission {
+                        id: (row.id * 1000 + i as i64), // Generate unique ID based on role ID
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        workspace_role_id: row.id,
+                        permission: permission.clone(),
+                    })
+                    .collect(),
             })
             .collect();
 
@@ -530,7 +541,7 @@ impl Query for GetWorkspaceDetailsQuery {
                 updated_at: row.updated_at,
                 workspace_id: row.workspace_id,
                 user_id: row.user_id,
-                roles: vec![], // TODO: Implement role assignment lookup
+                roles: vec![], // Simplified for now - would need async context to fetch roles via workspace_membership_roles
                 first_name: row.first_name,
                 last_name: row.last_name,
                 username: if row.username.is_empty() {

@@ -53,6 +53,12 @@ impl GetProjectsWithDeploymentQuery {
             mail_from_host: row
                 .get::<Option<String>, _>("deployment_mail_from_host")
                 .unwrap_or_default(),
+            domain_verification_records: row
+                .get::<Option<Vec<u8>>, _>("deployment_domain_verification_records")
+                .and_then(|v| serde_json::from_slice(&v).ok()),
+            email_verification_records: row
+                .get::<Option<Vec<u8>>, _>("deployment_email_verification_records")
+                .and_then(|v| serde_json::from_slice(&v).ok()),
         }
     }
 }
@@ -70,7 +76,9 @@ impl Query for GetProjectsWithDeploymentQuery {
                 d.frontend_host as deployment_frontend_host,
                 d.publishable_key as deployment_publishable_key,
                 d.project_id as deployment_project_id, d.mode as deployment_mode,
-                d.mail_from_host as deployment_mail_from_host
+                d.mail_from_host as deployment_mail_from_host,
+                d.domain_verification_records as deployment_domain_verification_records,
+                d.email_verification_records as deployment_email_verification_records
             FROM projects p
             LEFT JOIN deployments d ON p.id = d.project_id
             ORDER BY p.id DESC

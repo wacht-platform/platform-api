@@ -23,6 +23,8 @@ pub enum AppError {
     Serialization(String),
     #[error("S3 error: {0}")]
     S3(String),
+    #[error("External service error: {0}")]
+    External(String),
 }
 
 impl From<AppError> for ApiErrorResponse {
@@ -38,6 +40,7 @@ impl From<AppError> for ApiErrorResponse {
             AppError::Validation(message) => (StatusCode::BAD_REQUEST, message).into(),
             AppError::Serialization(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into(),
             AppError::S3(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into(),
+            AppError::External(message) => (StatusCode::BAD_GATEWAY, message).into(),
         }
     }
 }

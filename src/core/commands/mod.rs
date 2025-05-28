@@ -6,6 +6,7 @@ pub trait Command {
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError>;
 }
 
+pub mod ai_agent;
 pub mod create_organization;
 pub mod create_workspace;
 mod delete_organization;
@@ -20,6 +21,7 @@ mod update_organization;
 pub mod user;
 pub mod user_identifiers;
 
+pub use ai_agent::*;
 pub use create_organization::*;
 pub use create_workspace::*;
 pub use delete_organization::*;

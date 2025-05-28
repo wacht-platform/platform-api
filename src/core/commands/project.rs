@@ -797,6 +797,8 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             project_id: deployment_row.project_id,
             mode: DeploymentMode::from(deployment_row.mode),
             mail_from_host: deployment_row.mail_from_host,
+            domain_verification_records: None, // Staging doesn't need custom domain verification
+            email_verification_records: None,  // Staging uses default email settings
         };
 
         Ok(ProjectWithDeployments {
@@ -806,6 +808,484 @@ impl Command for CreateProjectWithStagingDeploymentCommand {
             updated_at: project_row.updated_at,
             name: project_row.name,
             deployments: vec![deployment],
+        })
+    }
+}
+
+pub struct CreateProductionDeploymentCommand {
+    project_id: i64,
+    custom_domain: String,
+    auth_methods: Vec<String>,
+}
+
+impl CreateProductionDeploymentCommand {
+    pub fn new(project_id: i64, custom_domain: String, auth_methods: Vec<String>) -> Self {
+        Self {
+            project_id,
+            custom_domain,
+            auth_methods,
+        }
+    }
+
+    fn create_b2b_settings(&self, deployment_id: i64) -> DeploymentB2bSettingsWithRoles {
+        DeploymentB2bSettingsWithRoles {
+            settings: DeploymentB2bSettings {
+                deployment_id,
+                ..DeploymentB2bSettings::default()
+            },
+            default_workspace_creator_role: DeploymentWorkspaceRole::admin(),
+            default_workspace_member_role: DeploymentWorkspaceRole::member(),
+            default_org_creator_role: DeploymentOrganizationRole::admin(),
+            default_org_member_role: DeploymentOrganizationRole::member(),
+        }
+    }
+
+    fn create_key_pair(&self, deployment_id: i64) -> Result<DeploymentKeyPair, AppError> {
+        let pair = rcgen::KeyPair::generate().map_err(|e| AppError::Internal(e.to_string()))?;
+
+        Ok(DeploymentKeyPair {
+            id: 0,
+            deployment_id,
+            public_key: pair.public_key_pem(),
+            private_key: pair.serialize_pem(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        })
+    }
+
+    fn create_auth_settings(&self, deployment_id: i64) -> DeploymentAuthSettings {
+        let email_enabled = self.auth_methods.contains(&"email".to_string());
+        let phone_enabled = self.auth_methods.contains(&"phone".to_string());
+        let username_enabled = self.auth_methods.contains(&"username".to_string());
+
+        let mut first_factor = FirstFactor::EmailPassword;
+        let mut alternate_first_factors: Vec<FirstFactor> = Vec::new();
+
+        if email_enabled {
+            first_factor = FirstFactor::EmailPassword;
+            if phone_enabled {
+                alternate_first_factors.push(FirstFactor::PhoneOtp);
+            }
+            if username_enabled {
+                alternate_first_factors.push(FirstFactor::UsernamePassword);
+            }
+        } else if phone_enabled {
+            first_factor = FirstFactor::PhoneOtp;
+            if username_enabled {
+                alternate_first_factors.push(FirstFactor::UsernamePassword);
+            }
+        } else if username_enabled {
+            first_factor = FirstFactor::UsernamePassword;
+        }
+
+        let email_settings = EmailSettings {
+            enabled: email_enabled,
+            required: email_enabled,
+            ..EmailSettings::default()
+        };
+
+        let phone_settings = PhoneSettings {
+            enabled: phone_enabled,
+            required: phone_enabled,
+            ..PhoneSettings::default()
+        };
+
+        let username_settings = UsernameSettings {
+            enabled: username_enabled,
+            required: username_enabled,
+            ..UsernameSettings::default()
+        };
+
+        let password_settings = PasswordSettings::default();
+        let first_name_settings = IndividualAuthSettings::default();
+        let last_name_settings = IndividualAuthSettings::default();
+
+        let auth_factors_enabled = AuthFactorsEnabled::default()
+            .with_email(email_enabled)
+            .with_phone(phone_enabled)
+            .with_username(username_enabled);
+
+        let verification_policy = VerificationPolicy {
+            phone_number: phone_enabled,
+            email: email_enabled,
+        };
+
+        DeploymentAuthSettings {
+            deployment_id,
+            email_address: email_settings,
+            phone_number: phone_settings,
+            username: username_settings,
+            first_factor,
+            first_name: first_name_settings,
+            last_name: last_name_settings,
+            password: password_settings,
+            auth_factors_enabled,
+            verification_policy,
+            second_factor_policy: SecondFactorPolicy::None,
+            ..DeploymentAuthSettings::default()
+        }
+    }
+
+    fn create_ui_settings(
+        &self,
+        deployment_id: i64,
+        frontend_host: String,
+        app_name: String,
+    ) -> DeploymentUISettings {
+        DeploymentUISettings {
+            deployment_id,
+            app_name,
+            after_sign_out_all_page_url: format!("{}/sign-in", frontend_host),
+            after_sign_out_one_page_url: format!("{}/account-picker", frontend_host),
+            sign_in_page_url: format!("{}/sign-in", frontend_host),
+            sign_up_page_url: format!("{}/sign-up", frontend_host),
+            dark_mode_settings: DarkModeSettings::default(),
+            light_mode_settings: LightModeSettings::default(),
+            organization_profile_url: format!("{}/organization", frontend_host),
+            create_organization_url: format!("{}/create-organization", frontend_host),
+            user_profile_url: format!("{}/me", frontend_host),
+            use_initials_for_organization_profile_image: true,
+            use_initials_for_user_profile_image: true,
+            ..DeploymentUISettings::default()
+        }
+    }
+
+    fn create_restrictions(&self, deployment_id: i64) -> DeploymentRestrictions {
+        DeploymentRestrictions {
+            deployment_id,
+            allowlist_enabled: false,
+            blocklist_enabled: false,
+            block_subaddresses: false,
+            block_disposable_emails: false,
+            block_voip_numbers: false,
+            country_restrictions: Default::default(),
+            banned_keywords: Default::default(),
+            allowlisted_resources: Default::default(),
+            blocklisted_resources: Default::default(),
+            sign_up_mode: Default::default(),
+            ..Default::default()
+        }
+    }
+
+    fn create_sms_templates(&self, deployment_id: i64) -> DeploymentSmsTemplate {
+        DeploymentSmsTemplate {
+            deployment_id,
+            ..Default::default()
+        }
+    }
+
+    fn create_email_templates(&self, deployment_id: i64) -> DeploymentEmailTemplate {
+        DeploymentEmailTemplate {
+            deployment_id,
+            ..Default::default()
+        }
+    }
+}
+
+impl Command for CreateProductionDeploymentCommand {
+    type Output = Deployment;
+
+    async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        let mut tx = app_state.db_pool.begin().await?;
+
+        // Get project name for UI settings
+        let _project = sqlx::query!("SELECT name FROM projects WHERE id = $1", self.project_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+        // Generate production hostnames
+        let backend_host = format!("fapi.{}", self.custom_domain);
+        let frontend_host = format!("accounts.{}", self.custom_domain);
+        let mail_from_host = self.custom_domain.clone();
+
+        // Generate DNS verification records
+        let domain_verification_records = app_state
+            .cloudflare_service
+            .generate_domain_verification_records(&frontend_host, &backend_host);
+
+        let email_verification_records = app_state
+            .ses_service
+            .get_email_verification_records(&self.custom_domain)
+            .await?;
+
+        let mut publishable_key = String::from("pk_live_");
+        let base64_backend_host = BASE64_STANDARD.encode(format!("https://{}", backend_host));
+        publishable_key.push_str(&base64_backend_host);
+
+        let deployment_row = sqlx::query!(
+            r#"
+            INSERT INTO deployments (
+                id,
+                project_id,
+                mode,
+                backend_host,
+                frontend_host,
+                publishable_key,
+                maintenance_mode,
+                mail_from_host,
+                domain_verification_records,
+                email_verification_records,
+                created_at,
+                updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id, created_at, updated_at, deleted_at,
+                     maintenance_mode, backend_host, frontend_host, publishable_key, project_id, mode, mail_from_host,
+                     domain_verification_records, email_verification_records
+            "#,
+            app_state.sf.next_id()? as i64,
+            self.project_id,
+            "production",
+            backend_host,
+            frontend_host,
+            publishable_key,
+            false,
+            mail_from_host,
+            serde_json::to_vec(&domain_verification_records)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_vec(&email_verification_records)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        // Create auth settings (similar to staging but for production)
+        let auth_settings = self.create_auth_settings(deployment_row.id);
+
+        // Insert auth settings (same as staging deployment)
+        sqlx::query!(
+            r#"
+            INSERT INTO deployment_auth_settings (
+                id,
+                deployment_id,
+                email_address,
+                phone_number,
+                username,
+                first_factor,
+                first_name,
+                last_name,
+                password,
+                auth_factors_enabled,
+                verification_policy,
+                second_factor_policy,
+                passkey,
+                magic_link,
+                multi_session_support,
+                session_token_lifetime,
+                session_validity_period,
+                session_inactive_timeout,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+            )
+            "#,
+            app_state.sf.next_id()? as i64,
+            deployment_row.id,
+            serde_json::to_value(&auth_settings.email_address)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.phone_number)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.username)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            auth_settings.first_factor.to_string(),
+            serde_json::to_value(&auth_settings.first_name)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.last_name)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.password)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.auth_factors_enabled)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.verification_policy)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            auth_settings.second_factor_policy.to_string(),
+            serde_json::to_value(&auth_settings.passkey)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.magic_link)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_value(&auth_settings.multi_session_support)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            auth_settings.session_token_lifetime,
+            auth_settings.session_validity_period,
+            auth_settings.session_inactive_timeout,
+            chrono::Utc::now(),
+            chrono::Utc::now(),
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        // Commit the database transaction first
+        tx.commit().await?;
+
+        // Create custom hostnames on Cloudflare
+        let frontend_hostname = format!("accounts.{}", self.custom_domain);
+        let backend_hostname = format!("fapi.{}", self.custom_domain);
+
+        // Create frontend custom hostname
+        let _frontend_hostname_result = app_state
+            .cloudflare_service
+            .create_custom_hostname(&frontend_hostname, "accounts.wacht.services")
+            .map_err(|e| {
+                tracing::error!("Failed to create frontend custom hostname: {}", e);
+                AppError::External(format!("Failed to create frontend custom hostname: {}", e))
+            })?;
+
+        // Create backend custom hostname
+        let _backend_hostname_result = app_state
+            .cloudflare_service
+            .create_custom_hostname(&backend_hostname, "fapi.wacht.services")
+            .map_err(|e| {
+                tracing::error!("Failed to create backend custom hostname: {}", e);
+                AppError::External(format!("Failed to create backend custom hostname: {}", e))
+            })?;
+
+        // Create SES email identity for the custom domain
+        app_state
+            .ses_service
+            .create_domain_identity_with_mail_from(&self.custom_domain)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to create SES email identity: {}", e);
+                AppError::External(format!("Failed to create SES email identity: {}", e))
+            })?;
+
+        tracing::info!(
+            "Successfully created production deployment for domain: {} with hostnames: {}, {}",
+            self.custom_domain,
+            frontend_hostname,
+            backend_hostname
+        );
+
+        Ok(Deployment {
+            id: deployment_row.id,
+            created_at: deployment_row.created_at,
+            updated_at: deployment_row.updated_at,
+            maintenance_mode: deployment_row.maintenance_mode,
+            backend_host: deployment_row.backend_host,
+            frontend_host: deployment_row.frontend_host,
+            publishable_key: deployment_row.publishable_key,
+            project_id: deployment_row.project_id,
+            mode: DeploymentMode::from(deployment_row.mode),
+            mail_from_host: deployment_row.mail_from_host,
+            domain_verification_records: Some(domain_verification_records),
+            email_verification_records: Some(email_verification_records),
+        })
+    }
+}
+
+pub struct VerifyDeploymentDnsRecordsCommand {
+    deployment_id: i64,
+}
+
+impl VerifyDeploymentDnsRecordsCommand {
+    pub fn new(deployment_id: i64) -> Self {
+        Self { deployment_id }
+    }
+}
+
+impl Command for VerifyDeploymentDnsRecordsCommand {
+    type Output = Deployment;
+
+    async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        // Get current deployment with DNS records
+        let deployment_row = sqlx::query!(
+            r#"
+            SELECT id, created_at, updated_at, deleted_at,
+                   maintenance_mode, backend_host, frontend_host, publishable_key,
+                   project_id, mode, mail_from_host, domain_verification_records, email_verification_records
+            FROM deployments
+            WHERE id = $1
+            "#,
+            self.deployment_id
+        )
+        .fetch_one(&app_state.db_pool)
+        .await?;
+
+        // Extract domain from backend host for SES verification
+        let domain = if deployment_row.backend_host.starts_with("fapi.") {
+            deployment_row
+                .backend_host
+                .strip_prefix("fapi.")
+                .unwrap_or(&deployment_row.backend_host)
+        } else {
+            &deployment_row.backend_host
+        };
+
+        // Get existing records from database or create new ones
+        let mut domain_verification_records = deployment_row
+            .domain_verification_records
+            .and_then(|v| serde_json::from_slice(&v).ok())
+            .unwrap_or_else(|| {
+                app_state
+                    .cloudflare_service
+                    .generate_domain_verification_records(
+                        &deployment_row.frontend_host,
+                        &deployment_row.backend_host,
+                    )
+            });
+
+        let mut email_verification_records = deployment_row
+            .email_verification_records
+            .and_then(|v| serde_json::from_slice(&v).ok())
+            .unwrap_or_default();
+
+        // Verify domain records using DNS verification service
+        app_state
+            .dns_verification_service
+            .verify_domain_records(&mut domain_verification_records)
+            .map_err(|e| {
+                tracing::warn!("Failed to verify domain records: {}", e);
+                e
+            })
+            .unwrap_or(());
+
+        // Verify email records using SES API
+        app_state
+            .ses_service
+            .verify_email_records(&mut email_verification_records, domain)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Failed to verify email records: {}", e);
+                e
+            })
+            .unwrap_or(());
+
+        // Update the deployment with verified records
+        sqlx::query!(
+            r#"
+            UPDATE deployments
+            SET domain_verification_records = $1,
+                email_verification_records = $2,
+                updated_at = $3
+            WHERE id = $4
+            "#,
+            serde_json::to_vec(&domain_verification_records)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            serde_json::to_vec(&email_verification_records)
+                .map_err(|e| AppError::Serialization(e.to_string()))?,
+            chrono::Utc::now(),
+            self.deployment_id
+        )
+        .execute(&app_state.db_pool)
+        .await?;
+
+        Ok(Deployment {
+            id: deployment_row.id,
+            created_at: deployment_row.created_at,
+            updated_at: chrono::Utc::now(), // Use current time since we just updated
+            maintenance_mode: deployment_row.maintenance_mode,
+            backend_host: deployment_row.backend_host,
+            frontend_host: deployment_row.frontend_host,
+            publishable_key: deployment_row.publishable_key,
+            project_id: deployment_row.project_id,
+            mode: DeploymentMode::from(deployment_row.mode),
+            mail_from_host: deployment_row.mail_from_host,
+            domain_verification_records: Some(domain_verification_records),
+            email_verification_records: Some(email_verification_records),
         })
     }
 }

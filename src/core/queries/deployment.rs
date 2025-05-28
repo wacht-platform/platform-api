@@ -39,6 +39,8 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployments.publishable_key,
                 deployments.mode,
                 deployments.mail_from_host,
+                deployments.domain_verification_records,
+                deployments.email_verification_records,
 
                 deployment_auth_settings.id as "auth_settings_id?",
                 deployment_auth_settings.created_at as "auth_settings_created_at?",
@@ -374,6 +376,12 @@ impl Query for GetDeploymentWithSettingsQuery {
             } else {
                 None
             },
+            domain_verification_records: row
+                .domain_verification_records
+                .and_then(|v| serde_json::from_slice(&v).ok()),
+            email_verification_records: row
+                .email_verification_records
+                .and_then(|v| serde_json::from_slice(&v).ok()),
         })
     }
 }

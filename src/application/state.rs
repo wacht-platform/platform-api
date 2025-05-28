@@ -6,7 +6,10 @@ use aws_sdk_sesv2::Client as SesClient;
 use redis::Client as RedisClient;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
-use crate::utils::handlebars_helpers;
+use crate::{
+    core::services::{CloudflareService, DnsVerificationService, SesService},
+    utils::handlebars_helpers,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -16,6 +19,9 @@ pub struct AppState {
     pub redis_client: RedisClient,
     pub ses_client: SesClient,
     pub handlebars: handlebars::Handlebars<'static>,
+    pub cloudflare_service: CloudflareService,
+    pub ses_service: SesService,
+    pub dns_verification_service: DnsVerificationService,
 }
 
 impl AppState {
@@ -73,6 +79,19 @@ impl AppState {
 
         handlebars.register_helper("image", Box::new(handlebars_helpers::ImageHelper));
 
+        // Initialize Cloudflare service
+        let cloudflare_api_key =
+            std::env::var("CLOUDFLARE_API_KEY").expect("CLOUDFLARE_API_KEY must be set");
+        let cloudflare_zone_id =
+            std::env::var("CLOUDFLARE_ZONE_ID").expect("CLOUDFLARE_ZONE_ID must be set");
+        let cloudflare_service = CloudflareService::new(cloudflare_api_key, cloudflare_zone_id);
+
+        // Initialize SES service
+        let ses_service = SesService::new(ses_client.clone());
+
+        // Initialize DNS verification service
+        let dns_verification_service = DnsVerificationService::new();
+
         Self {
             db_pool: pool,
             s3_client,
@@ -80,6 +99,9 @@ impl AppState {
             redis_client,
             ses_client,
             handlebars,
+            cloudflare_service,
+            ses_service,
+            dns_verification_service,
         }
     }
 }

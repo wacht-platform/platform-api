@@ -28,12 +28,9 @@ impl Command for AddOrganizationMemberCommand {
 
     async fn execute(self, app_state: &AppState) -> Result<Self::Output, AppError> {
         // Check if user exists
-        let user_exists = sqlx::query!(
-            "SELECT id FROM users WHERE id = $1",
-            self.user_id
-        )
-        .fetch_optional(&app_state.db_pool)
-        .await?;
+        let user_exists = sqlx::query!("SELECT id FROM users WHERE id = $1", self.user_id)
+            .fetch_optional(&app_state.db_pool)
+            .await?;
 
         if user_exists.is_none() {
             return Err(AppError::NotFound("User not found".to_string()));
@@ -62,7 +59,9 @@ impl Command for AddOrganizationMemberCommand {
         .await?;
 
         if existing_membership.is_some() {
-            return Err(AppError::BadRequest("User is already a member of this organization".to_string()));
+            return Err(AppError::BadRequest(
+                "User is already a member of this organization".to_string(),
+            ));
         }
 
         // Create membership
@@ -131,7 +130,47 @@ impl Command for AddOrganizationMemberCommand {
             updated_at: member_details.updated_at,
             organization_id: member_details.organization_id,
             user_id: member_details.user_id,
-            roles: vec![], // TODO: Fetch actual roles
+            roles: {
+                // Get organization roles for this member via membership roles junction table
+                let role_rows = sqlx::query!(
+                    r#"
+                    SELECT org_role.id, org_role.created_at, org_role.updated_at, org_role.name, org_role.permissions
+                    FROM organization_membership_roles omr
+                    JOIN organization_roles org_role ON omr.organization_role_id = org_role.id
+                    JOIN organization_memberships om ON omr.organization_membership_id = om.id
+                    WHERE om.organization_id = $1 AND om.user_id = $2
+                    "#,
+                    member_details.organization_id,
+                    member_details.user_id
+                )
+                .fetch_all(&app_state.db_pool)
+                .await
+                .unwrap_or_default();
+
+                role_rows
+                    .into_iter()
+                    .map(|role_row| crate::core::models::OrganizationRole {
+                        id: role_row.id,
+                        created_at: role_row.created_at,
+                        updated_at: role_row.updated_at,
+                        name: role_row.name,
+                        permissions: role_row
+                            .permissions
+                            .iter()
+                            .enumerate()
+                            .map(
+                                |(i, permission)| crate::core::models::OrganizationPermission {
+                                    id: (role_row.id * 1000 + i as i64), // Generate unique ID
+                                    created_at: role_row.created_at,
+                                    updated_at: role_row.updated_at,
+                                    org_role_id: role_row.id,
+                                    permission: permission.clone(),
+                                },
+                            )
+                            .collect(),
+                    })
+                    .collect()
+            },
             first_name: member_details.first_name,
             last_name: member_details.last_name,
             username: if member_details.username.is_empty() {
@@ -155,7 +194,12 @@ pub struct UpdateOrganizationMemberCommand {
 }
 
 impl UpdateOrganizationMemberCommand {
-    pub fn new(deployment_id: i64, organization_id: i64, membership_id: i64, role_ids: Vec<i64>) -> Self {
+    pub fn new(
+        deployment_id: i64,
+        organization_id: i64,
+        membership_id: i64,
+        role_ids: Vec<i64>,
+    ) -> Self {
         Self {
             deployment_id,
             organization_id,
@@ -179,7 +223,9 @@ impl Command for UpdateOrganizationMemberCommand {
         .await?;
 
         if membership_exists.is_none() {
-            return Err(AppError::NotFound("Organization membership not found".to_string()));
+            return Err(AppError::NotFound(
+                "Organization membership not found".to_string(),
+            ));
         }
 
         // Remove existing role associations
@@ -240,7 +286,9 @@ impl Command for RemoveOrganizationMemberCommand {
         .await?;
 
         if membership_exists.is_none() {
-            return Err(AppError::NotFound("Organization membership not found".to_string()));
+            return Err(AppError::NotFound(
+                "Organization membership not found".to_string(),
+            ));
         }
 
         // Delete membership (this should cascade to role associations)

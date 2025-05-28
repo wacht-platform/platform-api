@@ -39,6 +39,14 @@ impl Command for SendEmailCommand {
             .execute(app_state)
             .await?;
 
+        // Get deployment info to determine mail_from_host
+        let deployment = sqlx::query!(
+            "SELECT mail_from_host FROM deployments WHERE id = $1",
+            self.deployment_id
+        )
+        .fetch_one(&app_state.db_pool)
+        .await?;
+
         let subject = app_state
             .handlebars
             .render_template(&template.template_subject, &self.variables)
@@ -49,7 +57,7 @@ impl Command for SendEmailCommand {
             .render_template(&template.template_data, &self.variables)
             .map_err(|e| AppError::BadRequest(format!("Failed to render body: {}", e)))?;
 
-        let from_email = format!("{}@wacht.services", template.template_from);
+        let from_email = format!("{}@{}", template.template_from, deployment.mail_from_host);
 
         let destination = Destination::builder().to_addresses(&self.to_email).build();
 

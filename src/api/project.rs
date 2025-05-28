@@ -1,13 +1,17 @@
 use axum::{
-    extract::{Multipart, Path, State},
+    extract::{Json, Multipart, Path, State},
     http::StatusCode,
 };
+use serde::Deserialize;
 
 use crate::{
     application::AppState,
     core::{
-        commands::{Command, CreateProjectWithStagingDeploymentCommand, DeleteProjectCommand},
-        models::ProjectWithDeployments,
+        commands::{
+            Command, CreateProductionDeploymentCommand, CreateProjectWithStagingDeploymentCommand,
+            DeleteProjectCommand, VerifyDeploymentDnsRecordsCommand,
+        },
+        models::{Deployment, ProjectWithDeployments},
         queries::{GetProjectsWithDeploymentQuery, Query},
     },
 };
@@ -61,6 +65,35 @@ pub async fn create_project(
     }
 
     CreateProjectWithStagingDeploymentCommand::new(name, logo_buffer, methods)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+#[derive(Deserialize)]
+pub struct CreateProductionDeploymentRequest {
+    pub custom_domain: String,
+    pub auth_methods: Vec<String>,
+}
+
+pub async fn create_production_deployment(
+    State(app_state): State<AppState>,
+    Path(project_id): Path<i64>,
+    Json(request): Json<CreateProductionDeploymentRequest>,
+) -> ApiResult<Deployment> {
+    CreateProductionDeploymentCommand::new(project_id, request.custom_domain, request.auth_methods)
+        .execute(&app_state)
+        .await
+        .map(Into::into)
+        .map_err(Into::into)
+}
+
+pub async fn verify_deployment_dns_records(
+    State(app_state): State<AppState>,
+    Path(deployment_id): Path<i64>,
+) -> ApiResult<Deployment> {
+    VerifyDeploymentDnsRecordsCommand::new(deployment_id)
         .execute(&app_state)
         .await
         .map(Into::into)

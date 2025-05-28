@@ -6,6 +6,30 @@ use super::{
     DeploymentUISettings,
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DnsRecord {
+    pub name: String,
+    pub record_type: String, // "CNAME", "TXT", "MX", etc.
+    pub value: String,
+    pub ttl: Option<u32>,
+    pub verified: bool,
+    pub verification_attempted_at: Option<DateTime<Utc>>,
+    pub last_verified_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct DomainVerificationRecords {
+    pub cloudflare_verification: Vec<DnsRecord>,
+    pub custom_hostname_verification: Vec<DnsRecord>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct EmailVerificationRecords {
+    pub ses_verification: Vec<DnsRecord>,
+    pub mail_from_verification: Vec<DnsRecord>,
+    pub dkim_records: Vec<DnsRecord>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum DeploymentMode {
@@ -37,6 +61,8 @@ pub struct Deployment {
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub project_id: i64,
     pub mode: DeploymentMode,
+    pub domain_verification_records: Option<DomainVerificationRecords>,
+    pub email_verification_records: Option<EmailVerificationRecords>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -55,4 +81,6 @@ pub struct DeploymentWithSettings {
     pub ui_settings: Option<DeploymentUISettings>,
     pub b2b_settings: Option<DeploymentB2bSettingsWithRoles>,
     pub restrictions: Option<DeploymentRestrictions>,
+    pub domain_verification_records: Option<DomainVerificationRecords>,
+    pub email_verification_records: Option<EmailVerificationRecords>,
 }
