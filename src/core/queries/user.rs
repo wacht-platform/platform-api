@@ -255,7 +255,6 @@ impl Query for GetUserDetailsQuery {
     type Output = UserDetails;
 
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
-        // 1. Get the main user data with compile-time verification
         let user_row = sqlx::query!(
             r#"
             SELECT
@@ -278,7 +277,6 @@ impl Query for GetUserDetailsQuery {
         .fetch_one(&app_state.db_pool)
         .await?;
 
-        // 2. Get all email addresses with compile-time verification
         let email_rows = sqlx::query!(
             r#"
             SELECT
@@ -312,7 +310,6 @@ impl Query for GetUserDetailsQuery {
             })
             .collect();
 
-        // 3. Get all phone numbers with compile-time verification
         let phone_rows = sqlx::query!(
             r#"
             SELECT
@@ -339,7 +336,6 @@ impl Query for GetUserDetailsQuery {
             })
             .collect();
 
-        // 4. Get all social connections with compile-time verification
         let social_rows = sqlx::query!(
             r#"
             SELECT
@@ -369,7 +365,6 @@ impl Query for GetUserDetailsQuery {
             })
             .collect();
 
-        // 5. Construct the UserDetails object using compile-time verified data
         let user_details = UserDetails {
             id: user_row.id,
             created_at: user_row.created_at,

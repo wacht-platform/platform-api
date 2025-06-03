@@ -237,7 +237,8 @@ fn ai_routes() -> Router<AppState> {
         )
         .route(
             "/deployment/{deployment_id}/ai-knowledge-bases/{kb_id}/documents",
-            post(api::ai_knowledge_base::upload_knowledge_base_document),
+            get(api::ai_knowledge_base::get_knowledge_base_documents)
+                .post(api::ai_knowledge_base::upload_knowledge_base_document),
         )
 }
 

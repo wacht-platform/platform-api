@@ -1,85 +1,75 @@
 use axum::{
-    extract::{Json, Path, State},
+    extract::{Json, Path, Query, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    application::AppState,
-    core::{
-        commands::{Command, CreateAiAgentCommand, DeleteAiAgentCommand, UpdateAiAgentCommand},
-        models::{AiAgentWithDetails, CreateAiAgentRequest, UpdateAiAgentRequest},
-        queries::{GetAiAgentByIdQuery, GetAiAgentsQuery, Query},
-    },
+    application::{response::ApiResult, AppState},
+    core::models::AiAgentWithDetails,
 };
 
-use crate::application::response::{ApiResult, PaginatedResponse};
-
 #[derive(Deserialize)]
-pub struct GetAiAgentsParams {
-    pub deployment_id: i64,
-    pub page: Option<u32>,
-    pub limit: Option<u32>,
+pub struct GetAgentsQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
     pub search: Option<String>,
 }
 
-pub async fn get_ai_agents(
-    State(app_state): State<AppState>,
-    Path(deployment_id): Path<i64>,
-) -> ApiResult<PaginatedResponse<AiAgentWithDetails>> {
-    let agents = GetAiAgentsQuery::new(deployment_id, 0, 50, None)
-        .execute(&app_state)
-        .await?;
-
-    Ok(PaginatedResponse {
-        data: agents,
-        has_more: false,
-    }
-    .into())
+#[derive(Deserialize)]
+pub struct CreateAgentRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub configuration: Option<serde_json::Value>,
 }
 
-pub async fn get_ai_agent_by_id(
-    State(app_state): State<AppState>,
-    Path((deployment_id, agent_id)): Path<(i64, i64)>,
-) -> ApiResult<AiAgentWithDetails> {
-    let agent = GetAiAgentByIdQuery::new(deployment_id, agent_id)
-        .execute(&app_state)
-        .await?;
+#[derive(Deserialize)]
+pub struct UpdateAgentRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub configuration: Option<serde_json::Value>,
+}
 
-    Ok(agent.into())
+pub async fn get_ai_agents(
+    State(_app_state): State<AppState>,
+    Path(_deployment_id): Path<i64>,
+    Query(_query): Query<GetAgentsQuery>,
+) -> ApiResult<Vec<AiAgentWithDetails>> {
+    // TODO: Implement
+    Ok(vec![].into())
 }
 
 pub async fn create_ai_agent(
-    State(app_state): State<AppState>,
-    Path(deployment_id): Path<i64>,
-    Json(request): Json<CreateAiAgentRequest>,
-) -> ApiResult<AiAgentWithDetails> {
-    let agent = CreateAiAgentCommand::new(deployment_id, request)
-        .execute(&app_state)
-        .await?;
+    State(_app_state): State<AppState>,
+    Path(_deployment_id): Path<i64>,
+    Json(_request): Json<CreateAgentRequest>,
+) -> ApiResult<()> {
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
+}
 
-    Ok(agent.into())
+pub async fn get_ai_agent_by_id(
+    State(_app_state): State<AppState>,
+    Path((_deployment_id, _agent_id)): Path<(i64, i64)>,
+) -> ApiResult<()> {
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
 }
 
 pub async fn update_ai_agent(
-    State(app_state): State<AppState>,
-    Path((deployment_id, agent_id)): Path<(i64, i64)>,
-    Json(request): Json<UpdateAiAgentRequest>,
-) -> ApiResult<AiAgentWithDetails> {
-    let agent = UpdateAiAgentCommand::new(deployment_id, agent_id, request)
-        .execute(&app_state)
-        .await?;
-
-    Ok(agent.into())
+    State(_app_state): State<AppState>,
+    Path((_deployment_id, _agent_id)): Path<(i64, i64)>,
+    Json(_request): Json<UpdateAgentRequest>,
+) -> ApiResult<()> {
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
 }
 
 pub async fn delete_ai_agent(
-    State(app_state): State<AppState>,
-    Path((deployment_id, agent_id)): Path<(i64, i64)>,
+    State(_app_state): State<AppState>,
+    Path((_deployment_id, _agent_id)): Path<(i64, i64)>,
 ) -> ApiResult<()> {
-    DeleteAiAgentCommand::new(deployment_id, agent_id)
-        .execute(&app_state)
-        .await?;
-
-    Ok(().into())
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
 }

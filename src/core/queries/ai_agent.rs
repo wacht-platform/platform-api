@@ -1,9 +1,12 @@
 use crate::{
-    application::AppState,
-    core::models::{AiAgent, AiAgentStatus, AiAgentWithDetails},
+    application::{AppState, AppError},
+    core::{
+        models::{AiAgent, AiAgentWithDetails},
+        queries::Query,
+    },
 };
 
-use super::{Query, QueryError};
+
 
 pub struct GetAiAgentsQuery {
     pub deployment_id: i64,
@@ -23,15 +26,16 @@ impl GetAiAgentsQuery {
     }
 }
 
-#[async_trait::async_trait]
-impl Query<Vec<AiAgentWithDetails>> for GetAiAgentsQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<Vec<AiAgentWithDetails>, QueryError> {
+impl Query for GetAiAgentsQuery {
+    type Output = Vec<AiAgentWithDetails>;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let agents = if let Some(search) = &self.search {
             sqlx::query!(
                 r#"
-                SELECT 
-                    a.id, a.created_at, a.updated_at, a.name, a.description, 
-                    a.status, a.configuration, a.deployment_id,
+                SELECT
+                    a.id, a.created_at, a.updated_at, a.name, a.description,
+                    a.configuration, a.deployment_id,
                     COALESCE(t.tools_count, 0) as tools_count,
                     COALESCE(w.workflows_count, 0) as workflows_count,
                     COALESCE(k.knowledge_bases_count, 0) as knowledge_bases_count
@@ -66,9 +70,9 @@ impl Query<Vec<AiAgentWithDetails>> for GetAiAgentsQuery {
         } else {
             sqlx::query!(
                 r#"
-                SELECT 
-                    a.id, a.created_at, a.updated_at, a.name, a.description, 
-                    a.status, a.configuration, a.deployment_id,
+                SELECT
+                    a.id, a.created_at, a.updated_at, a.name, a.description,
+                    a.configuration, a.deployment_id,
                     COALESCE(t.tools_count, 0) as tools_count,
                     COALESCE(w.workflows_count, 0) as workflows_count,
                     COALESCE(k.knowledge_bases_count, 0) as knowledge_bases_count
@@ -99,7 +103,7 @@ impl Query<Vec<AiAgentWithDetails>> for GetAiAgentsQuery {
             .fetch_all(&app_state.db_pool)
             .await
         }
-        .map_err(|e| QueryError::DatabaseError(e.to_string()))?;
+        .map_err(|e| AppError::Database(e))?;
 
         Ok(agents
             .into_iter()
@@ -109,7 +113,6 @@ impl Query<Vec<AiAgentWithDetails>> for GetAiAgentsQuery {
                 updated_at: row.updated_at,
                 name: row.name,
                 description: row.description,
-                status: AiAgentStatus::from(row.status),
                 configuration: row.configuration,
                 deployment_id: row.deployment_id,
                 tools_count: row.tools_count.unwrap_or(0),
@@ -134,14 +137,15 @@ impl GetAiAgentByIdQuery {
     }
 }
 
-#[async_trait::async_trait]
-impl Query<AiAgentWithDetails> for GetAiAgentByIdQuery {
-    async fn execute(&self, app_state: &AppState) -> Result<AiAgentWithDetails, QueryError> {
+impl Query for GetAiAgentByIdQuery {
+    type Output = AiAgentWithDetails;
+
+    async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
         let agent = sqlx::query!(
             r#"
-            SELECT 
-                a.id, a.created_at, a.updated_at, a.name, a.description, 
-                a.status, a.configuration, a.deployment_id,
+            SELECT
+                a.id, a.created_at, a.updated_at, a.name, a.description,
+                a.configuration, a.deployment_id,
                 COALESCE(t.tools_count, 0) as tools_count,
                 COALESCE(w.workflows_count, 0) as workflows_count,
                 COALESCE(k.knowledge_bases_count, 0) as knowledge_bases_count
@@ -168,7 +172,7 @@ impl Query<AiAgentWithDetails> for GetAiAgentByIdQuery {
         )
         .fetch_one(&app_state.db_pool)
         .await
-        .map_err(|e| QueryError::DatabaseError(e.to_string()))?;
+        .map_err(|e| AppError::Database(e))?;
 
         Ok(AiAgentWithDetails {
             id: agent.id,
@@ -176,7 +180,6 @@ impl Query<AiAgentWithDetails> for GetAiAgentByIdQuery {
             updated_at: agent.updated_at,
             name: agent.name,
             description: agent.description,
-            status: AiAgentStatus::from(agent.status),
             configuration: agent.configuration,
             deployment_id: agent.deployment_id,
             tools_count: agent.tools_count.unwrap_or(0),

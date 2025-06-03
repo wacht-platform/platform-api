@@ -1,7 +1,3 @@
-mod ai_agent;
-mod ai_knowledge_base;
-mod ai_tool;
-mod ai_workflow;
 mod deployment;
 mod deployment_auth_settings;
 mod deployment_b2b_settings;
@@ -36,10 +32,12 @@ mod workspace_membership;
 mod workspace_permission;
 mod workspace_role;
 
-pub use ai_agent::*;
-pub use ai_knowledge_base::*;
-pub use ai_tool::*;
-pub use ai_workflow::*;
+// AI-related models
+mod ai_agent;
+mod ai_workflow;
+mod ai_tool;
+mod ai_knowledge_base;
+
 pub use deployment::*;
 pub use deployment_auth_settings::*;
 pub use deployment_b2b_settings::*;
@@ -64,6 +62,12 @@ pub use user::*;
 pub use user_details::*;
 pub use user_phone_number::*;
 pub use workspace::*;
+
+// AI-related exports
+pub use ai_agent::*;
+pub use ai_workflow::*;
+pub use ai_tool::*;
+pub use ai_knowledge_base::*;
 pub use workspace_details::*;
 pub use workspace_permission::*;
 pub use workspace_role::*;

@@ -1,78 +1,77 @@
 use axum::{
-    extract::{Json, Path, State},
+    extract::{Json, Path, Query, State},
     http::StatusCode,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    application::AppState,
-    core::{
-        commands::{
-            Command, CreateAiWorkflowCommand, DeleteAiWorkflowCommand, UpdateAiWorkflowCommand,
-        },
-        models::{AiWorkflowWithDetails, CreateAiWorkflowRequest, UpdateAiWorkflowRequest},
-        queries::{GetAiWorkflowByIdQuery, GetAiWorkflowsQuery, Query},
-    },
+    application::{response::ApiResult, AppState},
+    core::models::AiWorkflowWithDetails,
 };
 
-use crate::application::response::{ApiResult, PaginatedResponse};
-
-pub async fn get_ai_workflows(
-    State(app_state): State<AppState>,
-    Path(deployment_id): Path<i64>,
-) -> ApiResult<PaginatedResponse<AiWorkflowWithDetails>> {
-    let workflows = GetAiWorkflowsQuery::new(deployment_id, 0, 50, None)
-        .execute(&app_state)
-        .await?;
-
-    Ok(PaginatedResponse {
-        data: workflows,
-        has_more: false,
-    }
-    .into())
+#[derive(Deserialize)]
+pub struct GetWorkflowsQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub search: Option<String>,
 }
 
-pub async fn get_ai_workflow_by_id(
-    State(app_state): State<AppState>,
-    Path((deployment_id, workflow_id)): Path<(i64, i64)>,
-) -> ApiResult<AiWorkflowWithDetails> {
-    let workflow = GetAiWorkflowByIdQuery::new(deployment_id, workflow_id)
-        .execute(&app_state)
-        .await?;
+#[derive(Deserialize)]
+pub struct CreateWorkflowRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub configuration: Option<serde_json::Value>,
+    pub workflow_definition: Option<serde_json::Value>,
+}
 
-    Ok(workflow.into())
+#[derive(Deserialize)]
+pub struct UpdateWorkflowRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub configuration: Option<serde_json::Value>,
+    pub workflow_definition: Option<serde_json::Value>,
+}
+
+pub async fn get_ai_workflows(
+    State(_app_state): State<AppState>,
+    Path(_deployment_id): Path<i64>,
+    Query(_query): Query<GetWorkflowsQuery>,
+) -> ApiResult<Vec<AiWorkflowWithDetails>> {
+    // TODO: Implement
+    Ok(vec![].into())
 }
 
 pub async fn create_ai_workflow(
-    State(app_state): State<AppState>,
-    Path(deployment_id): Path<i64>,
-    Json(request): Json<CreateAiWorkflowRequest>,
-) -> ApiResult<AiWorkflowWithDetails> {
-    let workflow = CreateAiWorkflowCommand::new(deployment_id, request)
-        .execute(&app_state)
-        .await?;
+    State(_app_state): State<AppState>,
+    Path(_deployment_id): Path<i64>,
+    Json(_request): Json<CreateWorkflowRequest>,
+) -> ApiResult<()> {
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
+}
 
-    Ok(workflow.into())
+pub async fn get_ai_workflow_by_id(
+    State(_app_state): State<AppState>,
+    Path((_deployment_id, _workflow_id)): Path<(i64, i64)>,
+) -> ApiResult<()> {
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
 }
 
 pub async fn update_ai_workflow(
-    State(app_state): State<AppState>,
-    Path((deployment_id, workflow_id)): Path<(i64, i64)>,
-    Json(request): Json<UpdateAiWorkflowRequest>,
-) -> ApiResult<AiWorkflowWithDetails> {
-    let workflow = UpdateAiWorkflowCommand::new(deployment_id, workflow_id, request)
-        .execute(&app_state)
-        .await?;
-
-    Ok(workflow.into())
+    State(_app_state): State<AppState>,
+    Path((_deployment_id, _workflow_id)): Path<(i64, i64)>,
+    Json(_request): Json<UpdateWorkflowRequest>,
+) -> ApiResult<()> {
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
 }
 
 pub async fn delete_ai_workflow(
-    State(app_state): State<AppState>,
-    Path((deployment_id, workflow_id)): Path<(i64, i64)>,
+    State(_app_state): State<AppState>,
+    Path((_deployment_id, _workflow_id)): Path<(i64, i64)>,
 ) -> ApiResult<()> {
-    DeleteAiWorkflowCommand::new(deployment_id, workflow_id)
-        .execute(&app_state)
-        .await?;
-
-    Ok(().into())
+    // TODO: Implement
+    Err((StatusCode::NOT_IMPLEMENTED, "Not implemented yet".to_string()).into())
 }
