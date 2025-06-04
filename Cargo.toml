@@ -8,7 +8,7 @@ axum = { version = "0.8", features = ["macros", "multipart"] }
 tokio = { version = "1.35", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.5", features = ["trace", "cors"] }
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-native-tls", "postgres", "uuid", "chrono", "json"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-native-tls", "postgres", "uuid", "chrono", "json", "bigdecimal"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
@@ -31,4 +31,6 @@ handlebars = "6.2.0"
 argon2 = "0.5.3"
 totp-rs = "5.4.0"
 regex = "1.10.2"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+bigdecimal = { version = "0.4", features = ["serde"] }
 

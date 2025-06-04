@@ -5,7 +5,15 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    application::{response::ApiResult, AppState, AppError},
+    application::{
+        http::models::{
+            query::deployment::GetKnowledgeBasesQuery,
+            json::deployment::{CreateKnowledgeBaseRequest, UpdateKnowledgeBaseRequest},
+        },
+        response::ApiResult,
+        AppState,
+        AppError,
+    },
     core::{
         commands::{
             Command, CreateAiKnowledgeBaseCommand, UpdateAiKnowledgeBaseCommand,
@@ -13,37 +21,24 @@ use crate::{
         },
         models::{AiKnowledgeBase, AiKnowledgeBaseWithDetails, AiKnowledgeBaseDocument},
         queries::{
-            GetAiKnowledgeBasesQuery, GetAiKnowledgeBaseByIdQuery, GetKnowledgeBaseDocumentsQuery,
+            GetAiKnowledgeBasesQuery as GetKnowledgeBasesQueryCore,
+            GetAiKnowledgeBaseByIdQuery,
+            GetKnowledgeBaseDocumentsQuery,
             Query as QueryTrait,
         },
     },
 };
 
-#[derive(Deserialize)]
-pub struct GetKnowledgeBasesQuery {
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
-    pub search: Option<String>,
-}
-
-#[derive(Deserialize)]
-pub struct CreateKnowledgeBaseRequest {
-    pub name: String,
-    pub description: Option<String>,
-    pub configuration: Option<serde_json::Value>,
-}
-
-#[derive(Deserialize)]
-pub struct UpdateKnowledgeBaseRequest {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub configuration: Option<serde_json::Value>,
-}
-
 #[derive(Serialize)]
 pub struct KnowledgeBaseResponse {
     pub data: Vec<AiKnowledgeBaseWithDetails>,
     pub has_more: bool,
+}
+
+#[derive(Deserialize)]
+pub struct GetDocumentsQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
 }
 
 pub async fn get_ai_knowledge_bases(
@@ -54,7 +49,7 @@ pub async fn get_ai_knowledge_bases(
     let limit = query.limit.unwrap_or(20);
     let offset = query.offset.unwrap_or(0);
 
-    let mut query_builder = GetAiKnowledgeBasesQuery::new(deployment_id, limit + 1, offset);
+    let mut query_builder = GetKnowledgeBasesQueryCore::new(deployment_id, limit + 1, offset);
 
     if let Some(search) = query.search {
         query_builder = query_builder.with_search(search);
@@ -118,8 +113,6 @@ pub async fn update_ai_knowledge_base(
     if let Some(description) = request.description {
         command = command.with_description(Some(description));
     }
-
-
 
     if let Some(configuration) = request.configuration {
         command = command.with_configuration(configuration);
@@ -221,12 +214,6 @@ pub async fn upload_knowledge_base_document(
     .await
     .map(Into::into)
     .map_err(Into::into)
-}
-
-#[derive(Deserialize)]
-pub struct GetDocumentsQuery {
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
 }
 
 pub async fn get_knowledge_base_documents(

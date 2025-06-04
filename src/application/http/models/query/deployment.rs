@@ -140,3 +140,32 @@ impl Default for OrganizationListQueryParams {
         }
     }
 }
+
+// AI-related query parameters
+#[derive(Debug, Deserialize)]
+pub struct GetAgentsQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub search: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetToolsQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub search: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetWorkflowsQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub search: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetKnowledgeBasesQuery {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub search: Option<String>,
+}

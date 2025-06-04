@@ -1,3 +1,5 @@
+use sqlx::Row;
+
 use crate::{
     application::{AppState, AppError},
     core::{
@@ -16,13 +18,32 @@ pub struct GetAiAgentsQuery {
 }
 
 impl GetAiAgentsQuery {
-    pub fn new(deployment_id: i64, offset: u32, limit: u32, search: Option<String>) -> Self {
+    pub fn new(deployment_id: i64) -> Self {
         Self {
             deployment_id,
-            offset,
-            limit,
-            search,
+            offset: 0,
+            limit: 50,
+            search: None,
         }
+    }
+
+    pub fn with_limit(mut self, limit: Option<u32>) -> Self {
+        if let Some(limit) = limit {
+            self.limit = limit;
+        }
+        self
+    }
+
+    pub fn with_offset(mut self, offset: Option<u32>) -> Self {
+        if let Some(offset) = offset {
+            self.offset = offset;
+        }
+        self
+    }
+
+    pub fn with_search(mut self, search: Option<String>) -> Self {
+        self.search = search;
+        self
     }
 }
 
@@ -30,94 +51,64 @@ impl Query for GetAiAgentsQuery {
     type Output = Vec<AiAgentWithDetails>;
 
     async fn execute(&self, app_state: &AppState) -> Result<Self::Output, AppError> {
+        let base_query = r#"
+            SELECT
+                a.id, a.created_at, a.updated_at, a.name, a.description,
+                a.configuration, a.deployment_id,
+                COALESCE(t.tools_count, 0) as tools_count,
+                COALESCE(w.workflows_count, 0) as workflows_count,
+                COALESCE(k.knowledge_bases_count, 0) as knowledge_bases_count
+            FROM ai_agents a
+            LEFT JOIN (
+                SELECT agent_id, COUNT(*) as tools_count
+                FROM ai_agent_tools
+                GROUP BY agent_id
+            ) t ON a.id = t.agent_id
+            LEFT JOIN (
+                SELECT agent_id, COUNT(*) as workflows_count
+                FROM ai_agent_workflows
+                GROUP BY agent_id
+            ) w ON a.id = w.agent_id
+            LEFT JOIN (
+                SELECT agent_id, COUNT(*) as knowledge_bases_count
+                FROM ai_agent_knowledge_bases
+                GROUP BY agent_id
+            ) k ON a.id = k.agent_id
+            WHERE a.deployment_id = $1"#;
+
         let agents = if let Some(search) = &self.search {
-            sqlx::query!(
-                r#"
-                SELECT
-                    a.id, a.created_at, a.updated_at, a.name, a.description,
-                    a.configuration, a.deployment_id,
-                    COALESCE(t.tools_count, 0) as tools_count,
-                    COALESCE(w.workflows_count, 0) as workflows_count,
-                    COALESCE(k.knowledge_bases_count, 0) as knowledge_bases_count
-                FROM ai_agents a
-                LEFT JOIN (
-                    SELECT agent_id, COUNT(*) as tools_count 
-                    FROM ai_agent_tools 
-                    GROUP BY agent_id
-                ) t ON a.id = t.agent_id
-                LEFT JOIN (
-                    SELECT agent_id, COUNT(*) as workflows_count 
-                    FROM ai_agent_workflows 
-                    GROUP BY agent_id
-                ) w ON a.id = w.agent_id
-                LEFT JOIN (
-                    SELECT agent_id, COUNT(*) as knowledge_bases_count 
-                    FROM ai_agent_knowledge_bases 
-                    GROUP BY agent_id
-                ) k ON a.id = k.agent_id
-                WHERE a.deployment_id = $1 
-                AND (a.name ILIKE $2 OR a.description ILIKE $2)
-                ORDER BY a.created_at DESC
-                LIMIT $3 OFFSET $4
-                "#,
-                self.deployment_id,
-                format!("%{}%", search),
-                self.limit as i64,
-                self.offset as i64
-            )
-            .fetch_all(&app_state.db_pool)
-            .await
+            let query_with_search = format!("{} AND (a.name ILIKE $2 OR a.description ILIKE $2) ORDER BY a.created_at DESC LIMIT $3 OFFSET $4", base_query);
+            sqlx::query(&query_with_search)
+                .bind(self.deployment_id)
+                .bind(format!("%{}%", search))
+                .bind(self.limit as i64)
+                .bind(self.offset as i64)
+                .fetch_all(&app_state.db_pool)
+                .await
         } else {
-            sqlx::query!(
-                r#"
-                SELECT
-                    a.id, a.created_at, a.updated_at, a.name, a.description,
-                    a.configuration, a.deployment_id,
-                    COALESCE(t.tools_count, 0) as tools_count,
-                    COALESCE(w.workflows_count, 0) as workflows_count,
-                    COALESCE(k.knowledge_bases_count, 0) as knowledge_bases_count
-                FROM ai_agents a
-                LEFT JOIN (
-                    SELECT agent_id, COUNT(*) as tools_count 
-                    FROM ai_agent_tools 
-                    GROUP BY agent_id
-                ) t ON a.id = t.agent_id
-                LEFT JOIN (
-                    SELECT agent_id, COUNT(*) as workflows_count 
-                    FROM ai_agent_workflows 
-                    GROUP BY agent_id
-                ) w ON a.id = w.agent_id
-                LEFT JOIN (
-                    SELECT agent_id, COUNT(*) as knowledge_bases_count 
-                    FROM ai_agent_knowledge_bases 
-                    GROUP BY agent_id
-                ) k ON a.id = k.agent_id
-                WHERE a.deployment_id = $1
-                ORDER BY a.created_at DESC
-                LIMIT $2 OFFSET $3
-                "#,
-                self.deployment_id,
-                self.limit as i64,
-                self.offset as i64
-            )
-            .fetch_all(&app_state.db_pool)
-            .await
+            let query_without_search = format!("{} ORDER BY a.created_at DESC LIMIT $2 OFFSET $3", base_query);
+            sqlx::query(&query_without_search)
+                .bind(self.deployment_id)
+                .bind(self.limit as i64)
+                .bind(self.offset as i64)
+                .fetch_all(&app_state.db_pool)
+                .await
         }
         .map_err(|e| AppError::Database(e))?;
 
         Ok(agents
             .into_iter()
             .map(|row| AiAgentWithDetails {
-                id: row.id,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
-                name: row.name,
-                description: row.description,
-                configuration: row.configuration,
-                deployment_id: row.deployment_id,
-                tools_count: row.tools_count.unwrap_or(0),
-                workflows_count: row.workflows_count.unwrap_or(0),
-                knowledge_bases_count: row.knowledge_bases_count.unwrap_or(0),
+                id: row.get("id"),
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+                name: row.get("name"),
+                description: row.get("description"),
+                configuration: row.get("configuration"),
+                deployment_id: row.get("deployment_id"),
+                tools_count: row.get::<Option<i64>, _>("tools_count").unwrap_or(0),
+                workflows_count: row.get::<Option<i64>, _>("workflows_count").unwrap_or(0),
+                knowledge_bases_count: row.get::<Option<i64>, _>("knowledge_bases_count").unwrap_or(0),
             })
             .collect())
     }
