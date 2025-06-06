@@ -6,12 +6,20 @@ use super::{
     DeploymentUISettings,
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationStatus {
+    Pending,
+    InProgress,
+    Verified,
+    Failed,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DnsRecord {
     pub name: String,
-    pub record_type: String, // "CNAME", "TXT", "MX", etc.
+    pub record_type: String,
     pub value: String,
-    pub ttl: Option<u32>,
     pub verified: bool,
     pub verification_attempted_at: Option<DateTime<Utc>>,
     pub last_verified_at: Option<DateTime<Utc>>,
@@ -21,13 +29,15 @@ pub struct DnsRecord {
 pub struct DomainVerificationRecords {
     pub cloudflare_verification: Vec<DnsRecord>,
     pub custom_hostname_verification: Vec<DnsRecord>,
+    pub frontend_hostname_id: Option<String>,
+    pub backend_hostname_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct EmailVerificationRecords {
-    pub ses_verification: Vec<DnsRecord>,
-    pub mail_from_verification: Vec<DnsRecord>,
     pub dkim_records: Vec<DnsRecord>,
+    pub return_path_records: Vec<DnsRecord>,
+    pub postmark_domain_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -61,6 +71,7 @@ pub struct Deployment {
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub project_id: i64,
     pub mode: DeploymentMode,
+    pub verification_status: Option<VerificationStatus>,
     pub domain_verification_records: Option<DomainVerificationRecords>,
     pub email_verification_records: Option<EmailVerificationRecords>,
 }
@@ -77,6 +88,7 @@ pub struct DeploymentWithSettings {
     pub mail_from_host: String,
     pub publishable_key: String,
     pub mode: DeploymentMode,
+    pub verification_status: Option<VerificationStatus>,
     pub auth_settings: Option<DeploymentAuthSettings>,
     pub ui_settings: Option<DeploymentUISettings>,
     pub b2b_settings: Option<DeploymentB2bSettingsWithRoles>,

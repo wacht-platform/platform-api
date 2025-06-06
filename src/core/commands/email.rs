@@ -1,4 +1,3 @@
-use aws_sdk_sesv2::types::{Body, Content, Destination, EmailContent, Message};
 use std::collections::HashMap;
 
 use crate::{
@@ -57,40 +56,51 @@ impl Command for SendEmailCommand {
             .render_template(&template.template_data, &self.variables)
             .map_err(|e| AppError::BadRequest(format!("Failed to render body: {}", e)))?;
 
+        // Create a simple text version by stripping HTML tags (basic implementation)
+        let body_text = body_html
+            .replace("<br>", "\n")
+            .replace("<br/>", "\n")
+            .replace("<br />", "\n")
+            .replace("</p>", "\n\n")
+            .replace("</div>", "\n")
+            .replace("</h1>", "\n\n")
+            .replace("</h2>", "\n\n")
+            .replace("</h3>", "\n\n");
+
+        // Remove remaining HTML tags (simple regex replacement)
+        let body_text = regex::Regex::new(r"<[^>]*>")
+            .unwrap()
+            .replace_all(&body_text, "")
+            .to_string();
+
         let from_email = format!("{}@{}", template.template_from, deployment.mail_from_host);
 
-        let destination = Destination::builder().to_addresses(&self.to_email).build();
-
-        let subject_content = Content::builder()
-            .data(subject)
-            .charset("UTF-8")
-            .build()
-            .map_err(|e| AppError::BadRequest(format!("Failed to build subject: {}", e)))?;
-
-        let body_content = Content::builder()
-            .data(body_html)
-            .charset("UTF-8")
-            .build()
-            .map_err(|e| AppError::BadRequest(format!("Failed to build body: {}", e)))?;
-
-        let body = Body::builder().html(body_content).build();
-
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-
-        let email_content = EmailContent::builder().simple(message).build();
-
-        app_state
-            .ses_client
-            .send_email()
-            .from_email_address(from_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
-            .await
-            .map_err(|e| AppError::BadRequest(format!("Failed to send email: {}", e)))?;
+        // Send email via Postmark
+        match app_state.postmark_service.send_email(
+            &from_email,
+            &self.to_email,
+            &subject,
+            &body_html,
+            Some(&body_text),
+        ) {
+            Ok(response) => {
+                tracing::info!(
+                    "Email sent successfully via Postmark: {} -> {} (Message ID: {})",
+                    from_email,
+                    self.to_email,
+                    response.message_id
+                );
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to send email via Postmark: from={}, to={}, error={}",
+                    from_email,
+                    self.to_email,
+                    e
+                );
+                return Err(e);
+            }
+        }
 
         Ok(())
     }

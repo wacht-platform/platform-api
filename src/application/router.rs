@@ -24,6 +24,10 @@ fn project_routes() -> Router<AppState> {
             post(api::project::create_production_deployment),
         )
         .route(
+            "/project/{project_id}/deployment/{deployment_id}",
+            delete(api::project::delete_deployment),
+        )
+        .route(
             "/deployment/{deployment_id}/verify-dns",
             post(api::project::verify_deployment_dns_records),
         )
@@ -282,6 +286,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(project_routes())
         .merge(deployment_routes())
         .merge(ai_routes())
+        .merge(api::analytics::analytics_routes())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
         .layer(cors)

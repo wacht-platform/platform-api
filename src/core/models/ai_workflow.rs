@@ -29,11 +29,8 @@ pub struct AiWorkflowWithDetails {
     pub configuration: WorkflowConfiguration,
     pub workflow_definition: WorkflowDefinition,
     pub agents_count: i64,
-    pub executions_count: i64,
     pub last_execution_at: Option<DateTime<Utc>>,
 }
-
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkflowConfiguration {

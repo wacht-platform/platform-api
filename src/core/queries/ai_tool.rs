@@ -1,9 +1,9 @@
 use sqlx::Row;
 
 use crate::{
-    application::{AppState, AppError},
+    application::{AppError, AppState},
     core::{
-        models::{AiTool, AiToolWithDetails, AiToolType, AiToolConfiguration},
+        models::{AiToolConfiguration, AiToolType, AiToolWithDetails},
         queries::Query,
     },
 };
@@ -57,23 +57,34 @@ impl Query for GetAiToolsQuery {
                 GROUP BY tool_id
             ) a ON t.id = a.tool_id
             WHERE t.deployment_id = $1
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut param_count = 2;
         if self.search.is_some() {
-            query.push_str(&format!(" AND (t.name ILIKE ${} OR t.description ILIKE ${})", param_count, param_count + 1));
+            query.push_str(&format!(
+                " AND (t.name ILIKE ${} OR t.description ILIKE ${})",
+                param_count,
+                param_count + 1
+            ));
             param_count += 2;
         }
 
         query.push_str(" ORDER BY t.created_at DESC");
-        query.push_str(&format!(" LIMIT ${} OFFSET ${}", param_count, param_count + 1));
+        query.push_str(&format!(
+            " LIMIT ${} OFFSET ${}",
+            param_count,
+            param_count + 1
+        ));
 
         let mut query_builder = sqlx::query(&query);
         query_builder = query_builder.bind(self.deployment_id);
 
         if let Some(search) = &self.search {
             let search_pattern = format!("%{}%", search);
-            query_builder = query_builder.bind(search_pattern.clone()).bind(search_pattern);
+            query_builder = query_builder
+                .bind(search_pattern.clone())
+                .bind(search_pattern);
         }
 
         query_builder = query_builder
@@ -89,8 +100,8 @@ impl Query for GetAiToolsQuery {
             .into_iter()
             .map(|row| {
                 let tool_type = AiToolType::from(row.get::<String, _>("tool_type"));
-                let configuration: AiToolConfiguration = serde_json::from_value(row.get("configuration"))
-                    .unwrap_or_default();
+                let configuration: AiToolConfiguration =
+                    serde_json::from_value(row.get("configuration")).unwrap_or_default();
 
                 AiToolWithDetails {
                     id: row.get("id"),
@@ -101,7 +112,6 @@ impl Query for GetAiToolsQuery {
                     tool_type,
                     deployment_id: row.get("deployment_id"),
                     configuration,
-
                 }
             })
             .collect())
@@ -148,8 +158,8 @@ impl Query for GetAiToolByIdQuery {
         .map_err(|e| AppError::Database(e))?;
 
         let tool_type = AiToolType::from(tool.tool_type);
-        let configuration: AiToolConfiguration = serde_json::from_value(tool.configuration)
-            .unwrap_or_default();
+        let configuration: AiToolConfiguration =
+            serde_json::from_value(tool.configuration).unwrap_or_default();
 
         Ok(AiToolWithDetails {
             id: tool.id,
@@ -160,7 +170,6 @@ impl Query for GetAiToolByIdQuery {
             tool_type,
             deployment_id: tool.deployment_id,
             configuration,
-
         })
     }
 }

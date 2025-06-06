@@ -39,8 +39,8 @@ impl Query for GetDeploymentWithSettingsQuery {
                 deployments.publishable_key,
                 deployments.mode,
                 deployments.mail_from_host,
-                deployments.domain_verification_records,
-                deployments.email_verification_records,
+                deployments.domain_verification_records::jsonb as domain_verification_records,
+                deployments.email_verification_records::jsonb as email_verification_records,
 
                 deployment_auth_settings.id as "auth_settings_id?",
                 deployment_auth_settings.created_at as "auth_settings_created_at?",
@@ -164,7 +164,7 @@ impl Query for GetDeploymentWithSettingsQuery {
                 ON deployment_default_org_creator_role.id = deployment_b2b_settings.default_org_creator_role_id
             LEFT JOIN organization_roles AS deployment_default_org_member_role
                 ON deployment_default_org_member_role.id = deployment_b2b_settings.default_org_member_role_id
-            WHERE deployments.id = $1
+            WHERE deployments.id = $1 AND deployments.deleted_at IS NULL
             "#,
             self.deployment_id,
         )
@@ -192,6 +192,7 @@ impl Query for GetDeploymentWithSettingsQuery {
             publishable_key: row.publishable_key,
             mail_from_host: row.mail_from_host,
             mode,
+            verification_status: None, // TODO: Add verification_status to query when database is updated
             auth_settings: if row.auth_settings_id.is_some() {
                 Some(DeploymentAuthSettings {
                     id: row.auth_settings_id.unwrap(),
@@ -378,10 +379,10 @@ impl Query for GetDeploymentWithSettingsQuery {
             },
             domain_verification_records: row
                 .domain_verification_records
-                .and_then(|v| serde_json::from_slice(&v).ok()),
+                .and_then(|v| serde_json::from_value(v).ok()),
             email_verification_records: row
                 .email_verification_records
-                .and_then(|v| serde_json::from_slice(&v).ok()),
+                .and_then(|v| serde_json::from_value(v).ok()),
         })
     }
 }

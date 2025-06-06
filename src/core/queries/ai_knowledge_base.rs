@@ -1,9 +1,9 @@
 use sqlx::Row;
 
 use crate::{
-    application::{AppState, AppError},
+    application::{AppError, AppState},
     core::{
-        models::{AiKnowledgeBase, AiKnowledgeBaseWithDetails, AiKnowledgeBaseDocument},
+        models::{AiKnowledgeBaseDocument, AiKnowledgeBaseWithDetails},
         queries::Query,
     },
 };
@@ -134,7 +134,9 @@ impl Query for GetAiKnowledgeBaseByIdQuery {
             description: knowledge_base.get("description"),
             configuration: knowledge_base.get("configuration"),
             deployment_id: knowledge_base.get("deployment_id"),
-            documents_count: knowledge_base.get::<Option<i64>, _>("documents_count").unwrap_or(0),
+            documents_count: knowledge_base
+                .get::<Option<i64>, _>("documents_count")
+                .unwrap_or(0),
             total_size: knowledge_base.get("total_size"),
         })
     }

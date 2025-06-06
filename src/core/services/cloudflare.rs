@@ -119,7 +119,7 @@ impl CloudflareService {
             name: frontend_hostname.to_string(),
             record_type: "CNAME".to_string(),
             value: "accounts.wacht.services".to_string(),
-            ttl: Some(300),
+
             verified: false,
             verification_attempted_at: None,
             last_verified_at: None,
@@ -128,13 +128,192 @@ impl CloudflareService {
         records.custom_hostname_verification.push(DnsRecord {
             name: backend_hostname.to_string(),
             record_type: "CNAME".to_string(),
-            value: "fapi.wacht.services".to_string(),
-            ttl: Some(300),
+            value: "frontend.wacht.services".to_string(),
+
             verified: false,
             verification_attempted_at: None,
             last_verified_at: None,
         });
 
         records
+    }
+
+    pub fn check_domain_verification_status(&self, domain: &str) -> Result<bool, AppError> {
+        // For domain verification, we check if the specific CNAME record exists and points to the correct value
+        let url = format!(
+            "https://api.cloudflare.com/client/v4/zones/{}/dns_records?name={}&type=CNAME",
+            self.zone_id, domain
+        );
+
+        let mut response = ureq::get(&url)
+            .header("Authorization", &format!("Bearer {}", self.api_key))
+            .call()
+            .map_err(|e| AppError::External(format!("Cloudflare API error: {}", e)))?;
+
+        let cloudflare_response: CloudflareResponse<Vec<serde_json::Value>> = response
+            .body_mut()
+            .read_json()
+            .map_err(|e| AppError::External(format!("Failed to parse Cloudflare response: {}", e)))?;
+
+        if !cloudflare_response.success {
+            let error_messages: Vec<String> = cloudflare_response
+                .errors
+                .iter()
+                .map(|e| format!("{}: {}", e.code, e.message))
+                .collect();
+            return Err(AppError::External(format!(
+                "Cloudflare API errors: {}",
+                error_messages.join(", ")
+            )));
+        }
+
+        // Check if we found any CNAME record for this domain
+        // If Cloudflare has the record, it means it's properly configured
+        if let Some(records) = cloudflare_response.result {
+            for record in &records {
+                if let Some(name) = record.get("name").and_then(|n| n.as_str()) {
+                    if name == domain {
+                        // If the record exists in Cloudflare's zone, it's verified
+                        if let Some(content) = record.get("content").and_then(|c| c.as_str()) {
+                            tracing::info!("Domain verification found for {}: CNAME -> {}", domain, content);
+                        } else {
+                            tracing::info!("Domain verification found for {}: record exists", domain);
+                        }
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        tracing::info!("Domain verification not found for {}", domain);
+        Ok(false)
+    }
+
+    pub fn check_custom_hostname_status(&self, hostname: &str) -> Result<bool, AppError> {
+        tracing::info!("Checking custom hostname status for: {}", hostname);
+
+        // First, get all custom hostnames to find the ID for this hostname
+        let list_url = format!(
+            "https://api.cloudflare.com/client/v4/zones/{}/custom_hostnames?hostname={}",
+            self.zone_id, hostname
+        );
+
+        tracing::info!("Making Cloudflare API call to: {}", list_url);
+
+        let mut list_response = ureq::get(&list_url)
+            .header("Authorization", &format!("Bearer {}", self.api_key))
+            .call()
+            .map_err(|e| {
+                tracing::error!("Cloudflare API call failed: {}", e);
+                AppError::External(format!("Cloudflare API error: {}", e))
+            })?;
+
+        let list_cloudflare_response: CloudflareResponse<Vec<CustomHostname>> = list_response
+            .body_mut()
+            .read_json()
+            .map_err(|e| {
+                tracing::error!("Failed to parse Cloudflare response: {}", e);
+                AppError::External(format!("Failed to parse Cloudflare response: {}", e))
+            })?;
+
+        tracing::info!("Cloudflare API response success: {}", list_cloudflare_response.success);
+
+        if !list_cloudflare_response.success {
+            let error_messages: Vec<String> = list_cloudflare_response
+                .errors
+                .iter()
+                .map(|e| format!("{}: {}", e.code, e.message))
+                .collect();
+            tracing::error!("Cloudflare API errors: {}", error_messages.join(", "));
+            return Err(AppError::External(format!(
+                "Cloudflare API errors: {}",
+                error_messages.join(", ")
+            )));
+        }
+
+        // Find the custom hostname ID
+        let hostname_id = if let Some(hostnames) = list_cloudflare_response.result {
+            tracing::info!("Found {} custom hostnames", hostnames.len());
+            for (i, h) in hostnames.iter().enumerate() {
+                tracing::info!("Custom hostname {}: {} (id: {})", i, h.hostname, h.id);
+            }
+
+            hostnames
+                .iter()
+                .find(|h| h.hostname == hostname)
+                .map(|h| h.id.clone())
+        } else {
+            tracing::warn!("No custom hostnames returned from Cloudflare");
+            None
+        };
+
+        let hostname_id = match hostname_id {
+            Some(id) => {
+                tracing::info!("Found custom hostname ID for {}: {}", hostname, id);
+                id
+            }
+            None => {
+                tracing::warn!("Custom hostname {} not found in Cloudflare", hostname);
+                return Ok(false);
+            }
+        };
+
+        // Now get the detailed status using the hostname ID
+        let detail_url = format!(
+            "https://api.cloudflare.com/client/v4/zones/{}/custom_hostnames/{}",
+            self.zone_id, hostname_id
+        );
+
+        tracing::info!("Getting detailed status from: {}", detail_url);
+
+        let mut detail_response = ureq::get(&detail_url)
+            .header("Authorization", &format!("Bearer {}", self.api_key))
+            .call()
+            .map_err(|e| {
+                tracing::error!("Cloudflare detail API call failed: {}", e);
+                AppError::External(format!("Cloudflare API error: {}", e))
+            })?;
+
+        let detail_cloudflare_response: CloudflareResponse<serde_json::Value> = detail_response
+            .body_mut()
+            .read_json()
+            .map_err(|e| {
+                tracing::error!("Failed to parse Cloudflare detail response: {}", e);
+                AppError::External(format!("Failed to parse Cloudflare response: {}", e))
+            })?;
+
+        tracing::info!("Cloudflare detail API response success: {}", detail_cloudflare_response.success);
+
+        if !detail_cloudflare_response.success {
+            let error_messages: Vec<String> = detail_cloudflare_response
+                .errors
+                .iter()
+                .map(|e| format!("{}: {}", e.code, e.message))
+                .collect();
+            tracing::error!("Cloudflare detail API errors: {}", error_messages.join(", "));
+            return Err(AppError::External(format!(
+                "Cloudflare API errors: {}",
+                error_messages.join(", ")
+            )));
+        }
+
+        // Check the status field
+        if let Some(result) = detail_cloudflare_response.result {
+            tracing::info!("Custom hostname detail result: {}", serde_json::to_string_pretty(&result).unwrap_or_default());
+
+            if let Some(status) = result.get("status").and_then(|s| s.as_str()) {
+                tracing::info!("Custom hostname {} status: {}", hostname, status);
+                let is_active = status == "active";
+                tracing::info!("Is hostname {} active? {}", hostname, is_active);
+                return Ok(is_active);
+            } else {
+                tracing::warn!("No status field found in custom hostname response");
+            }
+        } else {
+            tracing::warn!("No result field in custom hostname response");
+        }
+
+        tracing::warn!("Custom hostname check failed for {}", hostname);
+        Ok(false)
     }
 }

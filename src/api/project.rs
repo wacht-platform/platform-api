@@ -12,7 +12,7 @@ use crate::{
     core::{
         commands::{
             Command, CreateProductionDeploymentCommand, CreateProjectWithStagingDeploymentCommand,
-            DeleteProjectCommand, VerifyDeploymentDnsRecordsCommand,
+            DeleteProjectCommand, DeleteDeploymentCommand, VerifyDeploymentDnsRecordsCommand,
         },
         models::{Deployment, ProjectWithDeployments},
         queries::{GetProjectsWithDeploymentQuery, Query},
@@ -81,11 +81,12 @@ pub async fn create_production_deployment(
     Path(project_id): Path<i64>,
     Json(request): Json<CreateProductionDeploymentRequest>,
 ) -> ApiResult<Deployment> {
-    CreateProductionDeploymentCommand::new(project_id, request.custom_domain, request.auth_methods)
+    let command = CreateProductionDeploymentCommand::new(project_id, request.custom_domain, request.auth_methods)
         .execute(&app_state)
         .await
-        .map(Into::into)
-        .map_err(Into::into)
+        .unwrap();
+
+    Ok(command.into())
 }
 
 pub async fn verify_deployment_dns_records(
@@ -104,6 +105,16 @@ pub async fn delete_project(
     Path(id): Path<i64>,
 ) -> ApiResult<()> {
     let command = DeleteProjectCommand::new(id, 0);
+    command.execute(&app_state).await?;
+
+    Ok(().into())
+}
+
+pub async fn delete_deployment(
+    State(app_state): State<AppState>,
+    Path((project_id, deployment_id)): Path<(i64, i64)>,
+) -> ApiResult<()> {
+    let command = DeleteDeploymentCommand::new(deployment_id, project_id);
     command.execute(&app_state).await?;
 
     Ok(().into())

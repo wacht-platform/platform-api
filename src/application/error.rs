@@ -56,3 +56,9 @@ impl From<redis::RedisError> for AppError {
         AppError::Internal(error.to_string())
     }
 }
+
+impl From<clickhouse::error::Error> for AppError {
+    fn from(error: clickhouse::error::Error) -> Self {
+        AppError::Database(sqlx::Error::Protocol(error.to_string()))
+    }
+}

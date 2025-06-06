@@ -1,9 +1,9 @@
 use sqlx::Row;
 
 use crate::{
-    application::{AppState, AppError},
+    application::{AppError, AppState},
     core::{
-        models::{AiWorkflow, AiWorkflowWithDetails, WorkflowConfiguration, WorkflowDefinition},
+        models::{AiWorkflowWithDetails, WorkflowConfiguration, WorkflowDefinition},
         queries::Query,
     },
 };
@@ -50,7 +50,6 @@ impl Query for GetAiWorkflowsQuery {
                 w.id, w.created_at, w.updated_at, w.name, w.description,
                 w.deployment_id, w.configuration, w.workflow_definition,
                 COALESCE(a.agents_count, 0) as agents_count,
-                COALESCE(e.executions_count, 0) as executions_count,
                 e.last_execution_at
             FROM ai_workflows w
             LEFT JOIN (
@@ -59,7 +58,7 @@ impl Query for GetAiWorkflowsQuery {
                 GROUP BY workflow_id
             ) a ON w.id = a.workflow_id
             LEFT JOIN (
-                SELECT workflow_id, COUNT(*) as executions_count, MAX(created_at) as last_execution_at
+                SELECT workflow_id, MAX(created_at) as last_execution_at
                 FROM ai_workflow_executions
                 GROUP BY workflow_id
             ) e ON w.id = e.workflow_id
@@ -68,19 +67,29 @@ impl Query for GetAiWorkflowsQuery {
 
         let mut param_count = 2;
         if self.search.is_some() {
-            query.push_str(&format!(" AND (w.name ILIKE ${} OR w.description ILIKE ${})", param_count, param_count + 1));
+            query.push_str(&format!(
+                " AND (w.name ILIKE ${} OR w.description ILIKE ${})",
+                param_count,
+                param_count + 1
+            ));
             param_count += 2;
         }
 
         query.push_str(" ORDER BY w.created_at DESC");
-        query.push_str(&format!(" LIMIT ${} OFFSET ${}", param_count, param_count + 1));
+        query.push_str(&format!(
+            " LIMIT ${} OFFSET ${}",
+            param_count,
+            param_count + 1
+        ));
 
         let mut query_builder = sqlx::query(&query);
         query_builder = query_builder.bind(self.deployment_id);
 
         if let Some(search) = &self.search {
             let search_pattern = format!("%{}%", search);
-            query_builder = query_builder.bind(search_pattern.clone()).bind(search_pattern);
+            query_builder = query_builder
+                .bind(search_pattern.clone())
+                .bind(search_pattern);
         }
 
         query_builder = query_builder
@@ -95,10 +104,10 @@ impl Query for GetAiWorkflowsQuery {
         Ok(workflows
             .into_iter()
             .map(|row| {
-                let configuration: WorkflowConfiguration = serde_json::from_value(row.get("configuration"))
-                    .unwrap_or_default();
-                let workflow_definition: WorkflowDefinition = serde_json::from_value(row.get("workflow_definition"))
-                    .unwrap_or_default();
+                let configuration: WorkflowConfiguration =
+                    serde_json::from_value(row.get("configuration")).unwrap_or_default();
+                let workflow_definition: WorkflowDefinition =
+                    serde_json::from_value(row.get("workflow_definition")).unwrap_or_default();
 
                 AiWorkflowWithDetails {
                     id: row.get("id"),
@@ -110,7 +119,6 @@ impl Query for GetAiWorkflowsQuery {
                     configuration,
                     workflow_definition,
                     agents_count: row.get::<Option<i64>, _>("agents_count").unwrap_or(0),
-                    executions_count: row.get::<Option<i64>, _>("executions_count").unwrap_or(0),
                     last_execution_at: row.get("last_execution_at"),
                 }
             })
@@ -142,7 +150,6 @@ impl Query for GetAiWorkflowByIdQuery {
                 w.id, w.created_at, w.updated_at, w.name, w.description,
                 w.deployment_id, w.configuration, w.workflow_definition,
                 COALESCE(a.agents_count, 0) as agents_count,
-                COALESCE(e.executions_count, 0) as executions_count,
                 e.last_execution_at
             FROM ai_workflows w
             LEFT JOIN (
@@ -151,7 +158,7 @@ impl Query for GetAiWorkflowByIdQuery {
                 GROUP BY workflow_id
             ) a ON w.id = a.workflow_id
             LEFT JOIN (
-                SELECT workflow_id, COUNT(*) as executions_count, MAX(created_at) as last_execution_at
+                SELECT workflow_id, MAX(created_at) as last_execution_at
                 FROM ai_workflow_executions
                 GROUP BY workflow_id
             ) e ON w.id = e.workflow_id
@@ -164,10 +171,10 @@ impl Query for GetAiWorkflowByIdQuery {
         .await
         .map_err(|e| AppError::Database(e))?;
 
-        let configuration: WorkflowConfiguration = serde_json::from_value(workflow.configuration)
-            .unwrap_or_default();
-        let workflow_definition: WorkflowDefinition = serde_json::from_value(workflow.workflow_definition)
-            .unwrap_or_default();
+        let configuration: WorkflowConfiguration =
+            serde_json::from_value(workflow.configuration).unwrap_or_default();
+        let workflow_definition: WorkflowDefinition =
+            serde_json::from_value(workflow.workflow_definition).unwrap_or_default();
 
         Ok(AiWorkflowWithDetails {
             id: workflow.id,
@@ -179,7 +186,6 @@ impl Query for GetAiWorkflowByIdQuery {
             configuration,
             workflow_definition,
             agents_count: workflow.agents_count.unwrap_or(0),
-            executions_count: workflow.executions_count.unwrap_or(0),
             last_execution_at: workflow.last_execution_at,
         })
     }

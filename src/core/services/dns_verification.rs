@@ -27,7 +27,6 @@ impl DnsVerificationService {
         Self {}
     }
 
-    /// Verify a single DNS record using Google's DNS-over-HTTPS API
     pub fn verify_dns_record(&self, record: &DnsRecord) -> Result<bool, AppError> {
         let record_type_num = match record.record_type.as_str() {
             "A" => 1,
@@ -68,26 +67,21 @@ impl DnsVerificationService {
         Ok(false)
     }
 
-    /// Check if the DNS answer matches the expected value (ignoring TTL)
     fn matches_expected_value(&self, actual: &str, expected: &str, record_type: &str) -> bool {
         match record_type {
             "CNAME" => {
-                // CNAME records often have trailing dots, normalize both
                 let actual_normalized = actual.trim_end_matches('.');
                 let expected_normalized = expected.trim_end_matches('.');
                 actual_normalized.eq_ignore_ascii_case(expected_normalized)
             }
             "TXT" => {
-                // TXT records might be quoted
                 let actual_unquoted = actual.trim_matches('"');
                 actual_unquoted == expected
             }
             "A" => {
-                // A records should be exact IP matches
                 actual == expected
             }
             "MX" => {
-                // MX records have priority and hostname, check if hostname matches
                 if let Some(hostname) = actual.split_whitespace().nth(1) {
                     let hostname_normalized = hostname.trim_end_matches('.');
                     let expected_normalized = expected.trim_end_matches('.');
@@ -100,41 +94,90 @@ impl DnsVerificationService {
         }
     }
 
-    /// Verify all DNS records in domain verification records
     pub fn verify_domain_records(
         &self,
         records: &mut DomainVerificationRecords,
+        cloudflare_service: &crate::core::services::cloudflare::CloudflareService,
     ) -> Result<(), AppError> {
-        // Verify Cloudflare verification records
+        // For Cloudflare verification records, first try custom hostname API, then DNS records
         for record in &mut records.cloudflare_verification {
+            tracing::info!("Starting verification for Cloudflare record: {}", record.name);
             record.verification_attempted_at = Some(Utc::now());
-            match self.verify_dns_record(record) {
+
+            // First try checking as a custom hostname (for domains like accounts.wacht.dev)
+            tracing::info!("Attempting custom hostname check for: {}", record.name);
+            match cloudflare_service.check_custom_hostname_status(&record.name) {
                 Ok(verified) => {
                     record.verified = verified;
                     if verified {
                         record.last_verified_at = Some(Utc::now());
                     }
+                    tracing::info!("Cloudflare custom hostname verification for {}: {} ✅", record.name, verified);
                 }
                 Err(e) => {
-                    tracing::warn!("Failed to verify DNS record {}: {}", record.name, e);
-                    record.verified = false;
+                    tracing::info!("Custom hostname check failed for {}, trying DNS records: {}", record.name, e);
+
+                    // Fallback to checking DNS records
+                    match cloudflare_service.check_domain_verification_status(&record.name) {
+                        Ok(verified) => {
+                            record.verified = verified;
+                            if verified {
+                                record.last_verified_at = Some(Utc::now());
+                            }
+                            tracing::info!("Cloudflare DNS verification for {}: {} ✅", record.name, verified);
+                        }
+                        Err(dns_e) => {
+                            tracing::warn!("Cloudflare DNS check failed for {}, trying manual DNS: {}", record.name, dns_e);
+                            // Final fallback to manual DNS lookup
+                            match self.verify_dns_record(record) {
+                                Ok(verified) => {
+                                    record.verified = verified;
+                                    if verified {
+                                        record.last_verified_at = Some(Utc::now());
+                                    }
+                                    tracing::info!("Manual DNS verification for {}: {} ✅", record.name, verified);
+                                }
+                                Err(manual_e) => {
+                                    tracing::warn!("Manual DNS fallback also failed for {}: {} ❌", record.name, manual_e);
+                                    record.verified = false;
+                                }
+                            }
+                        }
+                    }
                 }
             }
+
+            tracing::info!("Final verification result for {}: {}", record.name, record.verified);
         }
 
-        // Verify custom hostname verification records
+        // For custom hostname verification, use Cloudflare API to check hostname status
         for record in &mut records.custom_hostname_verification {
             record.verification_attempted_at = Some(Utc::now());
-            match self.verify_dns_record(record) {
+
+            // Use Cloudflare API to check custom hostname status
+            match cloudflare_service.check_custom_hostname_status(&record.name) {
                 Ok(verified) => {
                     record.verified = verified;
                     if verified {
                         record.last_verified_at = Some(Utc::now());
                     }
+                    tracing::info!("Cloudflare custom hostname verification for {}: {}", record.name, verified);
                 }
                 Err(e) => {
-                    tracing::warn!("Failed to verify DNS record {}: {}", record.name, e);
-                    record.verified = false;
+                    tracing::warn!("Failed to check Cloudflare custom hostname for {}: {}", record.name, e);
+                    // Fallback to DNS lookup if Cloudflare API fails
+                    match self.verify_dns_record(record) {
+                        Ok(verified) => {
+                            record.verified = verified;
+                            if verified {
+                                record.last_verified_at = Some(Utc::now());
+                            }
+                        }
+                        Err(dns_e) => {
+                            tracing::warn!("DNS fallback also failed for {}: {}", record.name, dns_e);
+                            record.verified = false;
+                        }
+                    }
                 }
             }
         }
@@ -142,18 +185,39 @@ impl DnsVerificationService {
         Ok(())
     }
 
-    /// Note: Email verification is now handled by SES service directly
-    /// This method is kept for compatibility but delegates to SES
     pub fn verify_email_records(
         &self,
-        _records: &mut EmailVerificationRecords,
+        records: &mut EmailVerificationRecords,
     ) -> Result<(), AppError> {
-        // Email verification is now handled by SES service's verify_email_records method
-        // This method is kept for interface compatibility
+        for record in &mut records.dkim_records {
+            if !record.verified {
+                record.verification_attempted_at = Some(chrono::Utc::now());
+                if let Ok(verified) = self.verify_dns_record(record) {
+                    record.verified = verified;
+                    if verified {
+                        record.last_verified_at = Some(chrono::Utc::now());
+                    }
+                }
+            }
+        }
+
+        for record in &mut records.return_path_records {
+            if !record.verified {
+                record.verification_attempted_at = Some(chrono::Utc::now());
+                if let Ok(verified) = self.verify_dns_record(record) {
+                    record.verified = verified;
+                    if verified {
+                        record.last_verified_at = Some(chrono::Utc::now());
+                    }
+                }
+            }
+        }
+
+
+
         Ok(())
     }
 
-    /// Check if all domain verification records are verified
     pub fn are_domain_records_verified(&self, records: &DomainVerificationRecords) -> bool {
         let cloudflare_verified = records.cloudflare_verification.iter().all(|r| r.verified);
         let hostname_verified = records
@@ -164,12 +228,10 @@ impl DnsVerificationService {
         cloudflare_verified && hostname_verified
     }
 
-    /// Check if all email verification records are verified
     pub fn are_email_records_verified(&self, records: &EmailVerificationRecords) -> bool {
-        let ses_verified = records.ses_verification.iter().all(|r| r.verified);
-        let mail_from_verified = records.mail_from_verification.iter().all(|r| r.verified);
         let dkim_verified = records.dkim_records.iter().all(|r| r.verified);
+        let return_path_verified = records.return_path_records.iter().all(|r| r.verified);
 
-        ses_verified && mail_from_verified && dkim_verified
+        dkim_verified && return_path_verified
     }
 }

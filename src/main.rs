@@ -23,6 +23,8 @@ async fn main() -> Result<()> {
     let app_state = application::AppState::new_from_env().await;
     core::services::QdrantService::initialize().await?;
 
+    app_state.clickhouse_service.init_tables().await?;
+
     let app = application::new(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await?;

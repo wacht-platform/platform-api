@@ -1,14 +1,9 @@
 use sqlx::Row;
 
 use crate::{
-    application::{AppState, AppError},
-    core::{
-        models::{AiAgent, AiAgentWithDetails},
-        queries::Query,
-    },
+    application::{AppError, AppState},
+    core::{models::AiAgentWithDetails, queries::Query},
 };
-
-
 
 pub struct GetAiAgentsQuery {
     pub deployment_id: i64,
@@ -108,7 +103,9 @@ impl Query for GetAiAgentsQuery {
                 deployment_id: row.get("deployment_id"),
                 tools_count: row.get::<Option<i64>, _>("tools_count").unwrap_or(0),
                 workflows_count: row.get::<Option<i64>, _>("workflows_count").unwrap_or(0),
-                knowledge_bases_count: row.get::<Option<i64>, _>("knowledge_bases_count").unwrap_or(0),
+                knowledge_bases_count: row
+                    .get::<Option<i64>, _>("knowledge_bases_count")
+                    .unwrap_or(0),
             })
             .collect())
     }

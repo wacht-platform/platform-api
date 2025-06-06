@@ -2,14 +2,14 @@ use std::str::FromStr;
 
 use aws_config::Region;
 use aws_sdk_s3::Client as S3Client;
-use aws_sdk_sesv2::Client as SesClient;
+
 use redis::Client as RedisClient;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 use crate::{
     core::services::{
-        CloudflareService, DnsVerificationService, EmbeddingService, SesService,
-        TextProcessingService,
+        ClickHouseService, CloudflareService, DnsVerificationService, EmbeddingService,
+        PostmarkService, TextProcessingService,
     },
     utils::handlebars_helpers,
 };
@@ -20,13 +20,13 @@ pub struct AppState {
     pub s3_client: S3Client,
     pub sf: sonyflake::Sonyflake,
     pub redis_client: RedisClient,
-    pub ses_client: SesClient,
     pub handlebars: handlebars::Handlebars<'static>,
     pub cloudflare_service: CloudflareService,
-    pub ses_service: SesService,
+    pub postmark_service: PostmarkService,
     pub dns_verification_service: DnsVerificationService,
     pub embedding_service: EmbeddingService,
     pub text_processing_service: TextProcessingService,
+    pub clickhouse_service: ClickHouseService,
 }
 
 impl AppState {
@@ -60,14 +60,7 @@ impl AppState {
                 .await,
         );
 
-        let ses_client = SesClient::new(
-            &aws_config::from_env()
-                .region(Region::new(
-                    std::env::var("AWS_DEFAULT_REGION").expect("AWS_DEFAULT_REGION must be set"),
-                ))
-                .load()
-                .await,
-        );
+
 
         let sf = sonyflake::Sonyflake::builder()
             .start_time(
@@ -90,7 +83,11 @@ impl AppState {
             std::env::var("CLOUDFLARE_ZONE_ID").expect("CLOUDFLARE_ZONE_ID must be set");
         let cloudflare_service = CloudflareService::new(cloudflare_api_key, cloudflare_zone_id);
 
-        let ses_service = SesService::new(ses_client.clone());
+        let postmark_account_token =
+            std::env::var("POSTMARK_ACCOUNT_TOKEN").expect("POSTMARK_ACCOUNT_TOKEN must be set");
+        let postmark_server_token =
+            std::env::var("POSTMARK_SERVER_TOKEN").expect("POSTMARK_SERVER_TOKEN must be set");
+        let postmark_service = PostmarkService::new(postmark_account_token, postmark_server_token);
 
         let dns_verification_service = DnsVerificationService::new();
 
@@ -99,18 +96,23 @@ impl AppState {
         let embedding_service =
             EmbeddingService::new().expect("Failed to initialize embedding service");
 
+        let clickhouse_url = std::env::var("CLICKHOUSE_URL")
+            .unwrap_or_else(|_| "http://localhost:8123".to_string());
+        let clickhouse_service = ClickHouseService::new(&clickhouse_url)
+            .expect("Failed to initialize ClickHouse service");
+
         Self {
             db_pool: pool,
             s3_client,
             sf,
             redis_client,
-            ses_client,
             handlebars,
             cloudflare_service,
-            ses_service,
+            postmark_service,
             dns_verification_service,
             embedding_service,
             text_processing_service,
+            clickhouse_service,
         }
     }
 }
