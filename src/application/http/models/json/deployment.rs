@@ -60,18 +60,3 @@ pub struct ExecuteWorkflowRequest {
     pub trigger_data: Option<serde_json::Value>,
     pub variables: Option<HashMap<String, serde_json::Value>>,
 }
-
-// AI Knowledge Base models
-#[derive(Debug, Deserialize)]
-pub struct CreateKnowledgeBaseRequest {
-    pub name: String,
-    pub description: Option<String>,
-    pub configuration: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateKnowledgeBaseRequest {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub configuration: Option<serde_json::Value>,
-}

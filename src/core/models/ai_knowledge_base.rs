@@ -44,7 +44,6 @@ pub struct AiKnowledgeBaseDocument {
     #[serde(with = "crate::utils::serde::i64_as_string")]
     pub knowledge_base_id: i64,
     pub processing_metadata: Option<serde_json::Value>,
-    pub usage_count: i64,
 }
 
 

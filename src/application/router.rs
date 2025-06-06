@@ -248,6 +248,23 @@ fn ai_routes() -> Router<AppState> {
             get(api::deployment::ai_knowledge_base::get_knowledge_base_documents)
                 .post(api::deployment::ai_knowledge_base::upload_knowledge_base_document),
         )
+        .route(
+            "/deployment/{deployment_id}/ai-knowledge-bases/{kb_id}/documents/url",
+            post(api::deployment::ai_knowledge_base::upload_knowledge_base_url),
+        )
+        .route(
+            "/deployment/{deployment_id}/ai-knowledge-bases/{kb_id}/documents/{document_id}",
+            delete(api::deployment::ai_knowledge_base::delete_knowledge_base_document),
+        )
+        // AI Knowledge Base Search
+        .route(
+            "/deployment/{deployment_id}/ai-knowledge-bases/search",
+            get(api::deployment::ai_knowledge_base_search::search_knowledge_base),
+        )
+        .route(
+            "/deployment/{deployment_id}/ai-knowledge-bases/{kb_id}/search",
+            get(api::deployment::ai_knowledge_base_search::search_specific_knowledge_base),
+        )
 }
 
 fn configure_cors() -> CorsLayer {

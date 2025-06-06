@@ -7,7 +7,10 @@ use redis::Client as RedisClient;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 use crate::{
-    core::services::{CloudflareService, DnsVerificationService, SesService},
+    core::services::{
+        CloudflareService, DnsVerificationService, EmbeddingService, SesService,
+        TextProcessingService,
+    },
     utils::handlebars_helpers,
 };
 
@@ -22,6 +25,8 @@ pub struct AppState {
     pub cloudflare_service: CloudflareService,
     pub ses_service: SesService,
     pub dns_verification_service: DnsVerificationService,
+    pub embedding_service: EmbeddingService,
+    pub text_processing_service: TextProcessingService,
 }
 
 impl AppState {
@@ -79,18 +84,20 @@ impl AppState {
 
         handlebars.register_helper("image", Box::new(handlebars_helpers::ImageHelper));
 
-        // Initialize Cloudflare service
         let cloudflare_api_key =
             std::env::var("CLOUDFLARE_API_KEY").expect("CLOUDFLARE_API_KEY must be set");
         let cloudflare_zone_id =
             std::env::var("CLOUDFLARE_ZONE_ID").expect("CLOUDFLARE_ZONE_ID must be set");
         let cloudflare_service = CloudflareService::new(cloudflare_api_key, cloudflare_zone_id);
 
-        // Initialize SES service
         let ses_service = SesService::new(ses_client.clone());
 
-        // Initialize DNS verification service
         let dns_verification_service = DnsVerificationService::new();
+
+        let text_processing_service = TextProcessingService::new();
+
+        let embedding_service =
+            EmbeddingService::new().expect("Failed to initialize embedding service");
 
         Self {
             db_pool: pool,
@@ -102,6 +109,8 @@ impl AppState {
             cloudflare_service,
             ses_service,
             dns_verification_service,
+            embedding_service,
+            text_processing_service,
         }
     }
 }

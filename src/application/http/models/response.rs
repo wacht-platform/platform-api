@@ -106,6 +106,22 @@ where
     pub has_more: bool,
 }
 
+// Knowledge Base specific responses
+#[derive(Debug, Clone, Serialize)]
+pub struct DocumentsResponse<T>
+where
+    T: Serialize,
+{
+    pub data: Vec<T>,
+    pub has_more: bool,
+}
+
+// Upload responses
+#[derive(Debug, Clone, Serialize)]
+pub struct UploadResponse {
+    pub url: String,
+}
+
 impl<T> From<Vec<T>> for PaginatedResponse<T>
 where
     T: Serialize,

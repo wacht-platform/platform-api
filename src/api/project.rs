@@ -2,10 +2,13 @@ use axum::{
     extract::{Json, Multipart, Path, State},
     http::StatusCode,
 };
-use serde::Deserialize;
+
 
 use crate::{
-    application::AppState,
+    application::{
+        AppState,
+        http::models::json::project::CreateProductionDeploymentRequest,
+    },
     core::{
         commands::{
             Command, CreateProductionDeploymentCommand, CreateProjectWithStagingDeploymentCommand,
@@ -71,11 +74,7 @@ pub async fn create_project(
         .map_err(Into::into)
 }
 
-#[derive(Deserialize)]
-pub struct CreateProductionDeploymentRequest {
-    pub custom_domain: String,
-    pub auth_methods: Vec<String>,
-}
+
 
 pub async fn create_production_deployment(
     State(app_state): State<AppState>,

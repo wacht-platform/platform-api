@@ -33,4 +33,10 @@ totp-rs = "5.4.0"
 regex = "1.10.2"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
-
+llm = { version = "1.2.9", features = ["google"] }
+qdrant-client = "1.14.0"
+pdf-extract = "0.7.9"
+lopdf = "0.34.0"
+pulldown-cmark = "0.12.2"
+text-splitter = "0.16.0"
+rustls = { version = "0.23.27", features = ["ring"] }

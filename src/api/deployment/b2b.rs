@@ -2,6 +2,11 @@ use axum::Json;
 use axum::extract::{Path, Query as QueryParams, State};
 
 use crate::application::http::models::json::deployment_settings::DeploymentB2bSettingsUpdates;
+use crate::application::http::models::json::b2b::{
+    CreateOrganizationRequest, UpdateOrganizationRequest, CreateWorkspaceRequest,
+    AddOrganizationMemberRequest, UpdateOrganizationMemberRequest,
+    CreateOrganizationRoleRequest, UpdateOrganizationRoleRequest,
+};
 use crate::application::query::OrganizationListQueryParams;
 use crate::core::commands::{
     AddOrganizationMemberCommand, Command, CreateOrganizationCommand,
@@ -134,14 +139,7 @@ pub async fn get_workspace_details(
         .map_err(Into::into)
 }
 
-#[derive(serde::Deserialize)]
-pub struct CreateOrganizationRequest {
-    pub name: String,
-    pub description: Option<String>,
-    pub image_url: Option<String>,
-    pub public_metadata: Option<serde_json::Value>,
-    pub private_metadata: Option<serde_json::Value>,
-}
+
 
 pub async fn create_organization(
     State(app_state): State<AppState>,
@@ -162,14 +160,7 @@ pub async fn create_organization(
     .map_err(Into::into)
 }
 
-#[derive(serde::Deserialize)]
-pub struct CreateWorkspaceRequest {
-    pub name: String,
-    pub description: Option<String>,
-    pub image_url: Option<String>,
-    pub public_metadata: Option<serde_json::Value>,
-    pub private_metadata: Option<serde_json::Value>,
-}
+
 
 pub async fn create_workspace_for_organization(
     State(app_state): State<AppState>,
@@ -191,14 +182,7 @@ pub async fn create_workspace_for_organization(
     .map_err(Into::into)
 }
 
-#[derive(serde::Deserialize)]
-pub struct UpdateOrganizationRequest {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub image_url: Option<String>,
-    pub public_metadata: Option<serde_json::Value>,
-    pub private_metadata: Option<serde_json::Value>,
-}
+
 
 pub async fn update_organization(
     State(app_state): State<AppState>,
@@ -232,11 +216,6 @@ pub async fn delete_organization(
 }
 
 // Organization Member Management
-#[derive(serde::Deserialize)]
-pub struct AddOrganizationMemberRequest {
-    pub user_id: i64,
-    pub role_ids: Vec<i64>,
-}
 
 pub async fn add_organization_member(
     State(app_state): State<AppState>,
@@ -255,10 +234,7 @@ pub async fn add_organization_member(
     .map_err(Into::into)
 }
 
-#[derive(serde::Deserialize)]
-pub struct UpdateOrganizationMemberRequest {
-    pub role_ids: Vec<i64>,
-}
+
 
 pub async fn update_organization_member(
     State(app_state): State<AppState>,
@@ -289,11 +265,6 @@ pub async fn remove_organization_member(
 }
 
 // Organization Role Management
-#[derive(serde::Deserialize)]
-pub struct CreateOrganizationRoleRequest {
-    pub name: String,
-    pub permissions: Vec<String>,
-}
 
 pub async fn create_organization_role(
     State(app_state): State<AppState>,
@@ -312,11 +283,7 @@ pub async fn create_organization_role(
     .map_err(Into::into)
 }
 
-#[derive(serde::Deserialize)]
-pub struct UpdateOrganizationRoleRequest {
-    pub name: Option<String>,
-    pub permissions: Option<Vec<String>>,
-}
+
 
 pub async fn update_organization_role(
     State(app_state): State<AppState>,

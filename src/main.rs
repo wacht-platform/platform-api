@@ -11,6 +11,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 async fn main() -> Result<()> {
     dotenv().ok();
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
@@ -19,6 +21,8 @@ async fn main() -> Result<()> {
         .init();
 
     let app_state = application::AppState::new_from_env().await;
+    core::services::QdrantService::initialize().await?;
+
     let app = application::new(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await?;

@@ -2,17 +2,19 @@ use axum::{
     extract::{Multipart, Path, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+
 
 use crate::{
-    application::{AppState, json::DeploymentDisplaySettingsUpdates, response::ApiResult},
+    application::{
+        AppState,
+        json::DeploymentDisplaySettingsUpdates,
+        response::ApiResult,
+        http::models::response::UploadResponse,
+    },
     core::commands::{Command, UpdateDeploymentDisplaySettingsCommand, UploadToCdnCommand},
 };
 
-#[derive(Serialize, Deserialize)]
-pub struct UploadResponse {
-    url: String,
-}
+
 
 pub async fn upload_image(
     State(app_state): State<AppState>,

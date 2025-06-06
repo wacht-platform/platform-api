@@ -2,13 +2,18 @@ use axum::{
     extract::{Json, Multipart, Path, Query, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+
+
 
 use crate::{
     application::{
         http::models::{
             query::deployment::GetKnowledgeBasesQuery,
-            json::deployment::{CreateKnowledgeBaseRequest, UpdateKnowledgeBaseRequest},
+            json::ai_knowledge_base::{
+                CreateKnowledgeBaseRequest, UpdateKnowledgeBaseRequest,
+                KnowledgeBaseResponse, GetDocumentsQuery, UploadUrlRequest,
+            },
+            response::DocumentsResponse,
         },
         response::ApiResult,
         AppState,
@@ -18,6 +23,7 @@ use crate::{
         commands::{
             Command, CreateAiKnowledgeBaseCommand, UpdateAiKnowledgeBaseCommand,
             DeleteAiKnowledgeBaseCommand, UploadKnowledgeBaseDocumentCommand,
+            UploadKnowledgeBaseUrlCommand, DeleteKnowledgeBaseDocumentCommand,
         },
         models::{AiKnowledgeBase, AiKnowledgeBaseWithDetails, AiKnowledgeBaseDocument},
         queries::{
@@ -29,17 +35,7 @@ use crate::{
     },
 };
 
-#[derive(Serialize)]
-pub struct KnowledgeBaseResponse {
-    pub data: Vec<AiKnowledgeBaseWithDetails>,
-    pub has_more: bool,
-}
 
-#[derive(Deserialize)]
-pub struct GetDocumentsQuery {
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
-}
 
 pub async fn get_ai_knowledge_bases(
     State(app_state): State<AppState>,
@@ -216,11 +212,36 @@ pub async fn upload_knowledge_base_document(
     .map_err(Into::into)
 }
 
+
+
+pub async fn upload_knowledge_base_url(
+    State(app_state): State<AppState>,
+    Path((deployment_id, kb_id)): Path<(i64, i64)>,
+    Json(request): Json<UploadUrlRequest>,
+) -> ApiResult<AiKnowledgeBaseDocument> {
+    // Verify the knowledge base exists and belongs to the deployment
+    GetAiKnowledgeBaseByIdQuery::new(deployment_id, kb_id)
+        .execute(&app_state)
+        .await
+        .map_err(|_| (StatusCode::NOT_FOUND, "Knowledge base not found".to_string()))?;
+
+    UploadKnowledgeBaseUrlCommand::new(
+        kb_id,
+        request.title,
+        request.description,
+        request.url,
+    )
+    .execute(&app_state)
+    .await
+    .map(Into::into)
+    .map_err(Into::into)
+}
+
 pub async fn get_knowledge_base_documents(
     State(app_state): State<AppState>,
     Path((deployment_id, kb_id)): Path<(i64, i64)>,
     Query(query): Query<GetDocumentsQuery>,
-) -> ApiResult<Vec<AiKnowledgeBaseDocument>> {
+) -> ApiResult<DocumentsResponse<AiKnowledgeBaseDocument>> {
     // Verify the knowledge base exists and belongs to the deployment
     GetAiKnowledgeBaseByIdQuery::new(deployment_id, kb_id)
         .execute(&app_state)
@@ -230,9 +251,30 @@ pub async fn get_knowledge_base_documents(
     let limit = query.limit.unwrap_or(20);
     let offset = query.offset.unwrap_or(0);
 
-    GetKnowledgeBaseDocumentsQuery::new(kb_id, limit, offset)
+    let mut documents = GetKnowledgeBaseDocumentsQuery::new(kb_id, limit + 1, offset)
         .execute(&app_state)
         .await
-        .map(Into::into)
-        .map_err(|e| AppError::from(e).into())
+        .map_err(|e| AppError::from(e))?;
+
+    let has_more = documents.len() > limit;
+    if has_more {
+        documents.pop();
+    }
+
+    Ok(DocumentsResponse {
+        data: documents,
+        has_more,
+    }
+    .into())
+}
+
+pub async fn delete_knowledge_base_document(
+    State(app_state): State<AppState>,
+    Path((deployment_id, kb_id, document_id)): Path<(i64, i64, i64)>,
+) -> ApiResult<()> {
+    DeleteKnowledgeBaseDocumentCommand::new(deployment_id, kb_id, document_id)
+        .execute(&app_state)
+        .await
+        .map(|_| ().into())
+        .map_err(Into::into)
 }

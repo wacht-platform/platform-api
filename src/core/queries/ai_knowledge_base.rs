@@ -165,7 +165,7 @@ impl Query for GetKnowledgeBaseDocumentsQuery {
             SELECT
                 id, created_at, updated_at, title, description, file_name,
                 file_size, file_type, file_url, knowledge_base_id,
-                processing_metadata, usage_count
+                processing_metadata
             FROM ai_knowledge_base_documents
             WHERE knowledge_base_id = $1
             ORDER BY created_at DESC
@@ -193,7 +193,6 @@ impl Query for GetKnowledgeBaseDocumentsQuery {
                 file_url: row.file_url,
                 knowledge_base_id: row.knowledge_base_id,
                 processing_metadata: row.processing_metadata,
-                usage_count: row.usage_count,
             })
             .collect())
     }
