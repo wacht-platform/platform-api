@@ -162,8 +162,7 @@ impl GeminiClient {
                 },
             );
             if can_use_prior_cache {
-                let delta_slice =
-                    cacheable_contents[prior_state.cached_content_count..].to_vec();
+                let delta_slice = cacheable_contents[prior_state.cached_content_count..].to_vec();
                 // Cost rule D·M ≥ P: reuse the cache across turns and only re-create
                 // (re-pay the whole prefix at input rate) when the un-cached delta
                 // has grown worth absorbing, or the cache is near expiry. Recreating

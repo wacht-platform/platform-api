@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id,\n            deployment_id,\n            actor_id,\n            project_id,\n            thread_id,\n            execution_run_id,\n            owner_agent_id,\n            recorded_by_agent_id,\n            memory_scope,\n            content,\n            embedding as \"embedding: Vector\",\n            memory_category,\n            metadata,\n            created_at,\n            updated_at,\n            NULL::double precision as distance\n        FROM agent_memories\n        WHERE deployment_id = $1\n            AND embedding IS NOT NULL\n            AND memory_scope = $2\n            AND ($3::bigint IS NULL OR actor_id = $3)\n            AND ($4::bigint IS NULL OR project_id = $4)\n            AND ($5::bigint IS NULL OR thread_id = $5)\n            AND (NOT $6::boolean OR memory_category = ANY($7::text[]))\n        ORDER BY created_at DESC\n        LIMIT $8\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "deployment_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "actor_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "project_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "thread_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "execution_run_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "owner_agent_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "recorded_by_agent_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "memory_scope",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "embedding: Vector",
+        "type_info": {
+          "Custom": {
+            "name": "vector",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "memory_category",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 15,
+        "name": "distance",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Bool",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "3756d905870a23c745f964cf2f1b9a0afd75e1aca4b0c03272b1d2accb045f5a"
+}

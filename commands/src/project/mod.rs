@@ -6,10 +6,9 @@ use models::{
     DeploymentB2bSettings, DeploymentB2bSettingsWithRoles, DeploymentEmailTemplate, DeploymentMode,
     DeploymentOrganizationRole, DeploymentRestrictions, DeploymentSmsTemplate,
     DeploymentUISettings, DeploymentWorkspaceRole, DomainVerificationRecords, EmailProvider,
-    EmailSettings, EmailVerificationRecords, FirstFactor, IndividualAuthSettings,
-    OauthCredentials, PasswordSettings, PhoneSettings, ProjectWithDeployments,
-    SecondFactorPolicy, SocialConnectionProvider, UsernameSettings, VerificationPolicy,
-    VerificationStatus,
+    EmailSettings, EmailVerificationRecords, FirstFactor, IndividualAuthSettings, OauthCredentials,
+    PasswordSettings, PhoneSettings, ProjectWithDeployments, SecondFactorPolicy,
+    SocialConnectionProvider, UsernameSettings, VerificationPolicy, VerificationStatus,
 };
 
 use base64::{Engine, engine::general_purpose::STANDARD, prelude::BASE64_STANDARD};

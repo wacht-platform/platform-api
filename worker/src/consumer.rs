@@ -10,7 +10,7 @@ use tracing::{error, warn};
 
 use crate::tasks::{
     agent, analytics, api_audit, api_key_role_permissions_sync, billing, document, email,
-    search_user_sync, token, vector_store, webhook, webhook_event, webhook_replay_batch,
+    search_user_sync, token, webhook, webhook_event, webhook_replay_batch,
 };
 
 const AGENT_EXECUTION_BUSY_RETRY_DELAY_SECONDS: u64 = 30;
@@ -73,8 +73,6 @@ enum WorkerTask {
     DocumentProcess(document::ProcessDocumentTask),
     #[serde(rename = "agent.event_log_work")]
     AgentEventLogWork(serde_json::Value),
-    #[serde(rename = "vector_store.maintain")]
-    VectorStoreMaintain(vector_store::VectorStoreMaintenanceTask),
     #[serde(rename = "webhook.event")]
     WebhookEvent(webhook_event::WebhookEventTask),
     #[serde(rename = "analytics.event")]
@@ -322,15 +320,6 @@ impl NatsConsumer {
                         }
                         other => TaskError::Permanent(other.to_string()),
                     })?;
-            }
-            WorkerTask::VectorStoreMaintain(task) => {
-                vector_store::maintain_vector_store_impl(
-                    task.deployment_id,
-                    task.store_name,
-                    &self.app_state,
-                )
-                .await
-                .map_err(|e| TaskError::Permanent(e.to_string()))?;
             }
             WorkerTask::WebhookEvent(task) => {
                 webhook_event::trigger_webhook_event(task, &self.app_state).await?;

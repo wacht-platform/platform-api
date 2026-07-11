@@ -1,10 +1,5 @@
 use super::ToolExecutor;
-use commands::{GenerateEmbeddingsCommand, ResolveDeploymentStorageCommand};
 use common::error::AppError;
-use common::{
-    connect_vector_store, open_memory_table_in_connection, search_memories_in_table,
-    MemoryQueryFilters,
-};
 use dto::json::agent_executor::{LoadMemoryParams, SaveMemoryParams, UpdateMemoryParams};
 use serde_json::Value;
 
@@ -119,9 +114,6 @@ impl ToolExecutor {
         }))
     }
 
-    /// Search for semantically similar memories. Returns `Some(Vec)` with close
-    /// matches if any found above threshold, `None` if the search couldn't run
-    /// (no vector store) or found nothing.
     async fn find_similar_memories(
         &self,
         deployment_id: i64,
@@ -130,64 +122,17 @@ impl ToolExecutor {
         project_id: i64,
         content: &str,
     ) -> Result<Option<Vec<serde_json::Value>>, AppError> {
-        // Resolve storage to check if vector store is initialized
-        let storage = ResolveDeploymentStorageCommand::new(deployment_id)
-            .execute_with_deps(self.app_state())
-            .await?;
-        if !storage.vector_store_initialized {
-            return Ok(None);
-        }
-        let lance_config = storage.vector_store_config();
-        let conn = connect_vector_store(&lance_config).await?;
-        let Some(table) = open_memory_table_in_connection(&conn).await? else {
-            return Ok(None);
-        };
-        let embedding_dimension = commands::resolve_deployment_embedding_dimension(
+        let results = commands::find_similar_memories(
             self.app_state(),
             deployment_id,
-        )
-        .await?;
-
-        // Generate query embedding from the content
-        let embeddings = GenerateEmbeddingsCommand::new(vec![content.to_string()])
-            .for_retrieval_query()
-            .for_deployment(deployment_id)
-            .execute_with_deps(self.app_state())
-            .await?;
-        let Some(query_embedding) = embeddings.into_iter().next() else {
-            return Ok(None);
-        };
-
-        // Search within relevant scopes
-        let filters = MemoryQueryFilters {
-            actor_id: Some(actor_id),
-            project_id: Some(project_id),
-            thread_id: Some(thread_id),
-            categories: None,
-        };
-        // Fetch more candidates than we need because time-decay re-ranking
-        // drops old memories; a 4x factor ensures we keep enough fresh ones for
-        // the similarity cutoff.
-        let results = search_memories_in_table(
-            &table,
-            deployment_id,
-            &query_embedding,
-            &filters,
+            thread_id,
+            actor_id,
+            project_id,
+            content,
             60,
-            embedding_dimension,
         )
         .await?;
 
-        // Re-rank by composite score (cosine distance + recency decay) so fresh
-        // similar memories surface above equally-similar old ones.
-        const DECAY_PER_HOUR: f32 = 0.0002;
-        let results = common::re_rank_by_recency(results, DECAY_PER_HOUR);
-
-        // Cosine distance threshold: 0.35 corresponds to roughly 70° angular
-        // separation between normalized vectors. Below this the content is
-        // semantically similar enough to be a likely duplicate; above it the
-        // match is too loose to block a save. The model can bypass this check
-        // with `confirmed: true`.
         const SIMILARITY_CUTOFF: f32 = 0.35;
         let similar: Vec<serde_json::Value> = results
             .into_iter()
@@ -206,7 +151,11 @@ impl ToolExecutor {
             })
             .collect();
 
-        Ok(Some(similar))
+        if similar.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(similar))
+        }
     }
 
     pub(super) async fn execute_update_memory(

@@ -8,8 +8,8 @@ pub mod tools;
 
 // Stable public surface — consumed by the worker.
 pub use runtime::{
-    AgentHandler, ExecutionRequest, LanceDbVectorStore, LanceDbVectorStoreFactory, SecretsProvider,
-    SettingsSecretsProvider, VectorStore, VectorStoreFactory,
+    AgentHandler, ExecutionRequest, PostgresVectorStore, PostgresVectorStoreFactory,
+    SecretsProvider, SettingsSecretsProvider, VectorStore, VectorStoreFactory,
 };
 pub use sandbox::init_shared_sandbox_runtime;
 

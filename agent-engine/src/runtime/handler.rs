@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::executor::core::AgentExecutorBuilder;
 use crate::runtime::secrets_provider::{SecretsProvider, SettingsSecretsProvider};
-use crate::runtime::vector_store::{LanceDbVectorStoreFactory, VectorStoreFactory};
+use crate::runtime::vector_store::{PostgresVectorStoreFactory, VectorStoreFactory};
 use crate::sandbox::self_healing::SelfHealingHandle;
 use crate::sandbox::{
     SandboxHandle, SandboxMount, SandboxMountMode, SandboxRuntimeFactory, TaskSandboxSpec,
@@ -136,7 +136,7 @@ impl AgentHandler {
             app_state.encryption_service.clone(),
         ));
         let vector_store_factory: Arc<dyn VectorStoreFactory> =
-            Arc::new(LanceDbVectorStoreFactory::new(app_state.clone()));
+            Arc::new(PostgresVectorStoreFactory::new(app_state.clone()));
         let sandbox_factory = build_sandbox_factory(&app_state);
         Self {
             app_state,

@@ -7,7 +7,6 @@ pub mod document;
 pub mod email;
 pub mod search_user_sync;
 pub mod token;
-pub mod vector_store;
 pub mod webhook;
 pub mod webhook_event;
 pub mod webhook_replay;

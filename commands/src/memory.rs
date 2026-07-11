@@ -1,19 +1,14 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use common::{
     HasDbRouter, HasEmbeddingProvider, HasEncryptionProvider, HasIdProvider, HasNatsProvider,
-    MemoryQueryFilters, connect_vector_store, error::AppError, insert_memory,
-    load_memories_in_table, open_memory_table_in_connection,
-    open_or_create_memory_table_in_connection, search_memories_full_text_in_table,
-    search_memories_in_table,
+    ReadConsistency, error::AppError,
 };
 use dto::json::agent_executor::{MemorySearchApproach, MemorySource, SearchDepth};
 use dto::json::memory::MemoryCategory;
 use models::MemoryRecord;
+use pgvector::Vector;
 
-use crate::{
-    DispatchVectorStoreMaintenanceTaskCommand, GenerateEmbeddingsCommand,
-    ResolveDeploymentStorageCommand, VECTOR_STORE_MEMORY, resolve_deployment_embedding_dimension,
-};
+use crate::GenerateEmbeddingsCommand;
 
 /// Weight applied per hour of staleness in the recency-adjusted composite
 /// score. At 0.0002, a record ages ~0.14 per 30 days — enough to give fresh
@@ -24,6 +19,50 @@ const DECAY_PER_HOUR: f32 = 0.0002;
 /// applied as a rank adjustment so higher-weighted categories surface above
 /// lower-weighted ones at similar relevance, without overwhelming top matches.
 const CATEGORY_WEIGHT_STRENGTH: f64 = 0.3;
+const RRF_K: f64 = 60.0;
+
+#[derive(Debug)]
+struct MemoryRecordRow {
+    id: i64,
+    deployment_id: i64,
+    actor_id: Option<i64>,
+    project_id: Option<i64>,
+    thread_id: Option<i64>,
+    execution_run_id: Option<i64>,
+    owner_agent_id: Option<i64>,
+    recorded_by_agent_id: Option<i64>,
+    memory_scope: String,
+    content: String,
+    embedding: Vector,
+    memory_category: String,
+    metadata: serde_json::Value,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    distance: Option<f64>,
+}
+
+impl From<MemoryRecordRow> for MemoryRecord {
+    fn from(row: MemoryRecordRow) -> Self {
+        Self {
+            id: row.id,
+            deployment_id: row.deployment_id,
+            actor_id: row.actor_id,
+            project_id: row.project_id,
+            thread_id: row.thread_id,
+            execution_run_id: row.execution_run_id,
+            owner_agent_id: row.owner_agent_id,
+            recorded_by_agent_id: row.recorded_by_agent_id,
+            memory_scope: row.memory_scope,
+            content: row.content,
+            embedding: Some(row.embedding.to_vec()),
+            memory_category: row.memory_category,
+            metadata: row.metadata,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            distance: row.distance.map(|distance| distance as f32),
+        }
+    }
+}
 
 pub struct StoreMemoryCommand {
     pub id: i64,
@@ -80,52 +119,68 @@ impl StoreMemoryCommand {
             + ?Sized,
     {
         let now = Utc::now();
+        let embedding = Vector::from(self.embedding);
+        let category = self.memory_category.to_string();
 
-        let storage = ResolveDeploymentStorageCommand::new(self.deployment_id)
-            .execute_with_deps(deps)
-            .await?;
-        let lance_config = storage.vector_store_config();
-        if !storage.vector_store_initialized {
-            return Err(AppError::Validation(
-                "Deployment vector store is not initialized. Re-save AI storage settings first."
-                    .to_string(),
-            ));
-        }
-
-        let conn = connect_vector_store(&lance_config).await?;
-        let table = open_or_create_memory_table_in_connection(&conn).await?;
-        let embedding_dimension =
-            resolve_deployment_embedding_dimension(deps, self.deployment_id).await?;
-
-        let record = MemoryRecord {
-            id: self.id,
-            deployment_id: self.deployment_id,
-            actor_id: self.actor_id,
-            project_id: self.project_id,
-            thread_id: self.thread_id,
-            execution_run_id: self.execution_run_id,
-            owner_agent_id: self.owner_agent_id,
-            recorded_by_agent_id: self.recorded_by_agent_id,
-            memory_scope: self.memory_scope,
-            content: self.content,
-            embedding: Some(self.embedding),
-            memory_category: self.memory_category.to_string(),
-            metadata: self.metadata,
-            created_at: now,
-            updated_at: now,
-            distance: None,
-        };
-        insert_memory(&table, &record, embedding_dimension).await?;
-
-        DispatchVectorStoreMaintenanceTaskCommand::new(
+        let row = sqlx::query_as!(
+            MemoryRecordRow,
+            r#"
+            INSERT INTO agent_memories (
+                id,
+                deployment_id,
+                actor_id,
+                project_id,
+                thread_id,
+                execution_run_id,
+                owner_agent_id,
+                recorded_by_agent_id,
+                memory_scope,
+                content,
+                embedding,
+                memory_category,
+                metadata,
+                created_at,
+                updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING
+                id,
+                deployment_id,
+                actor_id,
+                project_id,
+                thread_id,
+                execution_run_id,
+                owner_agent_id,
+                recorded_by_agent_id,
+                memory_scope,
+                content,
+                embedding as "embedding: Vector",
+                memory_category,
+                metadata,
+                created_at,
+                updated_at,
+                NULL::double precision as distance
+            "#,
+            self.id,
             self.deployment_id,
-            VECTOR_STORE_MEMORY.to_string(),
-            format!("memory-{}", self.id),
+            self.actor_id,
+            self.project_id,
+            self.thread_id,
+            self.execution_run_id,
+            self.owner_agent_id,
+            self.recorded_by_agent_id,
+            self.memory_scope,
+            self.content,
+            embedding as Vector,
+            category,
+            self.metadata,
+            now,
+            now
         )
-        .execute_with_deps(deps)
-        .await?;
+        .fetch_one(deps.writer_pool())
+        .await
+        .map_err(AppError::Database)?;
 
-        Ok(record)
+        Ok(row.into())
     }
 }
 
@@ -258,28 +313,7 @@ impl UpdateAgentMemoryCommand {
             + HasIdProvider
             + ?Sized,
     {
-        let storage = ResolveDeploymentStorageCommand::new(self.deployment_id)
-            .execute_with_deps(deps)
-            .await?;
-        let lance_config = storage.vector_store_config();
-        if !storage.vector_store_initialized {
-            return Err(AppError::Validation(
-                "Deployment vector store is not initialized.".to_string(),
-            ));
-        }
-
-        let conn = connect_vector_store(&lance_config).await?;
-        let table = open_or_create_memory_table_in_connection(&conn).await?;
-        let embedding_dimension =
-            resolve_deployment_embedding_dimension(deps, self.deployment_id).await?;
-
-        let filter = format!("id = {}", self.memory_id);
-        let mut existing =
-            load_memories_in_table(&table, self.deployment_id, &filter, 1, embedding_dimension)
-                .await?;
-        let existing = existing
-            .pop()
-            .ok_or_else(|| AppError::NotFound(format!("Memory {} not found", self.memory_id)))?;
+        let existing = load_memory_by_id(deps, self.deployment_id, self.memory_id).await?;
 
         let scope_changed = self
             .scope
@@ -374,42 +408,53 @@ impl UpdateAgentMemoryCommand {
             }
         }
 
+        let embedding = Vector::from(embedding);
+        let metadata = serde_json::Value::Object(metadata_obj);
         let now = Utc::now();
-        let updated_record = MemoryRecord {
-            id: existing.id,
-            deployment_id: existing.deployment_id,
-            actor_id: existing.actor_id,
-            project_id: existing.project_id,
-            thread_id: existing.thread_id,
-            execution_run_id: existing.execution_run_id,
-            owner_agent_id: existing.owner_agent_id,
-            recorded_by_agent_id: existing.recorded_by_agent_id,
-            memory_scope: existing.memory_scope.clone(),
-            content: new_content,
-            embedding: Some(embedding),
-            memory_category: category,
-            metadata: serde_json::Value::Object(metadata_obj),
-            created_at: existing.created_at,
-            updated_at: now,
-            distance: None,
-        };
 
-        table
-            .delete(&format!("id = {}", self.memory_id))
-            .await
-            .map_err(common::vector_store::map_vector_store_error)?;
-        insert_memory(&table, &updated_record, embedding_dimension).await?;
-
-        DispatchVectorStoreMaintenanceTaskCommand::new(
+        let row = sqlx::query_as!(
+            MemoryRecordRow,
+            r#"
+            UPDATE agent_memories
+            SET
+                content = $3,
+                embedding = $4,
+                memory_category = $5,
+                metadata = $6,
+                updated_at = $7
+            WHERE deployment_id = $1 AND id = $2
+            RETURNING
+                id,
+                deployment_id,
+                actor_id,
+                project_id,
+                thread_id,
+                execution_run_id,
+                owner_agent_id,
+                recorded_by_agent_id,
+                memory_scope,
+                content,
+                embedding as "embedding: Vector",
+                memory_category,
+                metadata,
+                created_at,
+                updated_at,
+                NULL::double precision as distance
+            "#,
             self.deployment_id,
-            VECTOR_STORE_MEMORY.to_string(),
-            format!("memory-{}", self.memory_id),
+            self.memory_id,
+            new_content,
+            embedding as Vector,
+            category,
+            metadata,
+            now
         )
-        .execute_with_deps(deps)
+        .fetch_optional(deps.writer_pool())
         .await
-        .ok();
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound(format!("Memory {} not found", self.memory_id)))?;
 
-        Ok(updated_record)
+        Ok(row.into())
     }
 }
 
@@ -423,23 +468,6 @@ impl LoadAgentMemoryCommand {
             + HasIdProvider
             + ?Sized,
     {
-        let storage = ResolveDeploymentStorageCommand::new(self.deployment_id)
-            .execute_with_deps(deps)
-            .await?;
-        if !storage.vector_store_initialized {
-            return Err(AppError::Validation(
-                "Deployment vector store is not initialized. Re-save AI storage settings first."
-                    .to_string(),
-            ));
-        }
-
-        let conn = connect_vector_store(&storage.vector_store_config()).await?;
-        let Some(table) = open_memory_table_in_connection(&conn).await? else {
-            return Ok(Vec::new());
-        };
-        let embedding_dimension =
-            resolve_deployment_embedding_dimension(deps, self.deployment_id).await?;
-
         let limit = match self.depth.unwrap_or(SearchDepth::Moderate) {
             SearchDepth::Shallow => 20,
             SearchDepth::Moderate => 50,
@@ -449,7 +477,7 @@ impl LoadAgentMemoryCommand {
 
         if query.is_empty() {
             return load_recent_memories_from_sources(
-                &table,
+                deps,
                 self.deployment_id,
                 self.thread_id,
                 self.actor_id,
@@ -457,7 +485,6 @@ impl LoadAgentMemoryCommand {
                 &self.sources,
                 &self.categories,
                 limit,
-                embedding_dimension,
             )
             .await;
         }
@@ -473,69 +500,167 @@ impl LoadAgentMemoryCommand {
         match self.search_approach {
             MemorySearchApproach::Semantic => {
                 let embedding = build_query_embedding(deps, self.deployment_id, &query).await?;
-                // Over-fetch by 3x so category + recency re-ranking can promote
-                // lower-ranked facts/preferences before truncation.
                 let fetch_limit = limit * 3;
-                let results = search_memories_in_table(
-                    &table,
+                search_memories_semantic(
+                    deps,
                     self.deployment_id,
                     &embedding,
                     &filters,
                     fetch_limit,
-                    embedding_dimension,
+                    limit,
                 )
-                .await?;
-                let decayed = common::re_rank_by_recency(results, DECAY_PER_HOUR);
-                let mut ranked = apply_category_weights(decayed);
-                ranked.truncate(limit);
-                Ok(ranked)
+                .await
             }
             MemorySearchApproach::FullText => {
                 let fetch_limit = limit * 3;
-                let results = search_memories_full_text_in_table(
-                    &table,
+                search_memories_full_text(
+                    deps,
                     self.deployment_id,
                     &query,
                     &filters,
                     fetch_limit,
-                    embedding_dimension,
+                    limit,
                 )
-                .await?;
-                let mut ranked = apply_category_weights(results);
-                ranked.truncate(limit);
-                Ok(ranked)
+                .await
             }
             MemorySearchApproach::Hybrid => {
                 let embedding = build_query_embedding(deps, self.deployment_id, &query).await?;
-                // Over-fetch for each leg so RRF + category re-ranking works
-                // on a broader set.
                 let fetch_limit = limit * 2;
-                let semantic = search_memories_in_table(
-                    &table,
+                search_memories_hybrid(
+                    deps,
                     self.deployment_id,
+                    &query,
                     &embedding,
                     &filters,
                     fetch_limit,
-                    embedding_dimension,
+                    limit,
                 )
-                .await?;
-                let text = search_memories_full_text_in_table(
-                    &table,
-                    self.deployment_id,
-                    &query,
-                    &filters,
-                    fetch_limit,
-                    embedding_dimension,
-                )
-                .await?;
-                let merged = rrf_merge_memories(semantic, text, limit * 3);
-                let decayed = common::re_rank_by_recency(merged, DECAY_PER_HOUR);
-                let mut ranked = apply_category_weights(decayed);
-                ranked.truncate(limit);
-                Ok(ranked)
+                .await
             }
         }
     }
+}
+
+pub async fn find_similar_memories<D>(
+    deps: &D,
+    deployment_id: i64,
+    thread_id: i64,
+    actor_id: i64,
+    project_id: i64,
+    content: &str,
+    limit: usize,
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter
+        + HasEmbeddingProvider
+        + HasEncryptionProvider
+        + HasNatsProvider
+        + HasIdProvider
+        + ?Sized,
+{
+    let embedding = build_query_embedding(deps, deployment_id, content).await?;
+    let filters = MemoryQueryFilters {
+        actor_id: Some(actor_id),
+        project_id: Some(project_id),
+        thread_id: Some(thread_id),
+        categories: None,
+    };
+    search_memories_semantic(deps, deployment_id, &embedding, &filters, limit, limit).await
+}
+
+pub async fn get_startup_memories<D>(
+    deps: &D,
+    deployment_id: i64,
+    thread_id: i64,
+    actor_id: i64,
+    limit: usize,
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
+    let rows = sqlx::query_as!(
+        MemoryRecordRow,
+        r#"
+        SELECT
+            id,
+            deployment_id,
+            actor_id,
+            project_id,
+            thread_id,
+            execution_run_id,
+            owner_agent_id,
+            recorded_by_agent_id,
+            memory_scope,
+            content,
+            embedding as "embedding: Vector",
+            memory_category,
+            metadata,
+            created_at,
+            updated_at,
+            NULL::double precision as distance
+        FROM agent_memories
+        WHERE deployment_id = $1
+            AND embedding IS NOT NULL
+            AND (
+                (thread_id = $2 AND memory_scope = 'thread')
+                OR (actor_id = $3 AND memory_scope = 'actor')
+            )
+        ORDER BY created_at DESC
+        LIMIT $4
+        "#,
+        deployment_id,
+        thread_id,
+        actor_id,
+        limit as i64
+    )
+    .fetch_all(deps.reader_pool(ReadConsistency::Eventual))
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows.into_iter().map(Into::into).collect())
+}
+
+async fn load_memory_by_id<D>(
+    deps: &D,
+    deployment_id: i64,
+    memory_id: i64,
+) -> Result<MemoryRecord, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
+    let row = sqlx::query_as!(
+        MemoryRecordRow,
+        r#"
+        SELECT
+            id,
+            deployment_id,
+            actor_id,
+            project_id,
+            thread_id,
+            execution_run_id,
+            owner_agent_id,
+            recorded_by_agent_id,
+            memory_scope,
+            content,
+            embedding as "embedding: Vector",
+            memory_category,
+            metadata,
+            created_at,
+            updated_at,
+            NULL::double precision as distance
+        FROM agent_memories
+        WHERE deployment_id = $1 AND id = $2
+        LIMIT 1
+        "#,
+        deployment_id,
+        memory_id
+    )
+    .fetch_optional(deps.reader_pool(ReadConsistency::Strong))
+    .await
+    .map_err(AppError::Database)?
+    .ok_or_else(|| AppError::NotFound(format!("Memory {} not found", memory_id)))?;
+
+    Ok(row.into())
 }
 
 async fn build_query_embedding<D>(
@@ -563,6 +688,13 @@ where
         .ok_or_else(|| AppError::Internal("Failed to generate query embedding".to_string()))
 }
 
+struct MemoryQueryFilters {
+    actor_id: Option<i64>,
+    project_id: Option<i64>,
+    thread_id: Option<i64>,
+    categories: Option<Vec<String>>,
+}
+
 fn build_memory_query_filters(
     thread_id: i64,
     actor_id: i64,
@@ -576,17 +708,368 @@ fn build_memory_query_filters(
             .contains(&MemorySource::Project)
             .then_some(project_id),
         thread_id: sources.contains(&MemorySource::Thread).then_some(thread_id),
-        categories: Some(
+        categories: (!categories.is_empty()).then(|| {
             categories
                 .iter()
                 .map(|category| category.to_string())
-                .collect::<Vec<_>>(),
-        ),
+                .collect::<Vec<_>>()
+        }),
     }
 }
 
-async fn load_recent_memories_from_sources(
-    table: &lancedb::Table,
+async fn search_memories_semantic<D>(
+    deps: &D,
+    deployment_id: i64,
+    embedding: &[f32],
+    filters: &MemoryQueryFilters,
+    fetch_limit: usize,
+    final_limit: usize,
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
+    let query_embedding = Vector::from(embedding.to_vec());
+    let categories = filters.categories.clone().unwrap_or_default();
+    let category_filter_enabled = filters.categories.is_some();
+
+    let rows = sqlx::query_as!(
+        MemoryRecordRow,
+        r#"
+        WITH candidates AS (
+            SELECT
+                id,
+                deployment_id,
+                actor_id,
+                project_id,
+                thread_id,
+                execution_run_id,
+                owner_agent_id,
+                recorded_by_agent_id,
+                memory_scope,
+                content,
+                embedding,
+                memory_category,
+                metadata,
+                created_at,
+                updated_at,
+                (embedding <=> $2) as distance
+            FROM agent_memories
+            WHERE deployment_id = $1
+                AND embedding IS NOT NULL
+                AND (
+                    ($3::bigint IS NOT NULL AND actor_id = $3 AND memory_scope = 'actor')
+                    OR ($4::bigint IS NOT NULL AND project_id = $4 AND memory_scope = 'project')
+                    OR ($5::bigint IS NOT NULL AND thread_id = $5 AND memory_scope = 'thread')
+                )
+                AND (NOT $6::boolean OR memory_category = ANY($7::text[]))
+            ORDER BY embedding <=> $2
+            LIMIT $8
+        ), recency_ranked AS (
+            SELECT
+                *,
+                row_number() OVER (
+                    ORDER BY distance + ($10::double precision * GREATEST(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600.0, 0.0)) ASC
+                ) as position,
+                count(*) OVER () as total_count
+            FROM candidates
+        )
+        SELECT
+            id,
+            deployment_id,
+            actor_id,
+            project_id,
+            thread_id,
+            execution_run_id,
+            owner_agent_id,
+            recorded_by_agent_id,
+            memory_scope,
+            content,
+            embedding as "embedding: Vector",
+            memory_category,
+            metadata,
+            created_at,
+            updated_at,
+            distance
+        FROM recency_ranked
+        ORDER BY
+            (1.0 - ((position - 1)::double precision / GREATEST(total_count, 1)::double precision))
+            + ((CASE memory_category
+                WHEN 'fact' THEN 1.3
+                WHEN 'preference' THEN 1.2
+                WHEN 'observation' THEN 1.1
+                WHEN 'conversation_summary' THEN 0.9
+                ELSE 1.0
+            END - 1.0) * $11::double precision) DESC,
+            position ASC
+        LIMIT $9
+        "#,
+        deployment_id,
+        query_embedding as Vector,
+        filters.actor_id,
+        filters.project_id,
+        filters.thread_id,
+        category_filter_enabled,
+        &categories,
+        fetch_limit as i64,
+        final_limit as i64,
+        DECAY_PER_HOUR as f64,
+        CATEGORY_WEIGHT_STRENGTH
+    )
+    .fetch_all(deps.reader_pool(ReadConsistency::Eventual))
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows.into_iter().map(Into::into).collect())
+}
+
+async fn search_memories_full_text<D>(
+    deps: &D,
+    deployment_id: i64,
+    query: &str,
+    filters: &MemoryQueryFilters,
+    fetch_limit: usize,
+    final_limit: usize,
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
+    let categories = filters.categories.clone().unwrap_or_default();
+    let category_filter_enabled = filters.categories.is_some();
+
+    let rows = sqlx::query_as!(
+        MemoryRecordRow,
+        r#"
+        WITH candidates AS (
+            SELECT
+                id,
+                deployment_id,
+                actor_id,
+                project_id,
+                thread_id,
+                execution_run_id,
+                owner_agent_id,
+                recorded_by_agent_id,
+                memory_scope,
+                content,
+                embedding,
+                memory_category,
+                metadata,
+                created_at,
+                updated_at,
+                row_number() OVER (ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', $2)) DESC, created_at DESC) as position,
+                count(*) OVER () as total_count
+            FROM agent_memories
+            WHERE deployment_id = $1
+                AND embedding IS NOT NULL
+                AND (
+                    ($3::bigint IS NOT NULL AND actor_id = $3 AND memory_scope = 'actor')
+                    OR ($4::bigint IS NOT NULL AND project_id = $4 AND memory_scope = 'project')
+                    OR ($5::bigint IS NOT NULL AND thread_id = $5 AND memory_scope = 'thread')
+                )
+                AND (NOT $6::boolean OR memory_category = ANY($7::text[]))
+                AND search_vector @@ websearch_to_tsquery('english', $2)
+            ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', $2)) DESC, created_at DESC
+            LIMIT $8
+        )
+        SELECT
+            id,
+            deployment_id,
+            actor_id,
+            project_id,
+            thread_id,
+            execution_run_id,
+            owner_agent_id,
+            recorded_by_agent_id,
+            memory_scope,
+            content,
+            embedding as "embedding: Vector",
+            memory_category,
+            metadata,
+            created_at,
+            updated_at,
+            NULL::double precision as distance
+        FROM candidates
+        ORDER BY
+            (1.0 - ((position - 1)::double precision / GREATEST(total_count, 1)::double precision))
+            + ((CASE memory_category
+                WHEN 'fact' THEN 1.3
+                WHEN 'preference' THEN 1.2
+                WHEN 'observation' THEN 1.1
+                WHEN 'conversation_summary' THEN 0.9
+                ELSE 1.0
+            END - 1.0) * $10::double precision) DESC,
+            position ASC
+        LIMIT $9
+        "#,
+        deployment_id,
+        query,
+        filters.actor_id,
+        filters.project_id,
+        filters.thread_id,
+        category_filter_enabled,
+        &categories,
+        fetch_limit as i64,
+        final_limit as i64,
+        CATEGORY_WEIGHT_STRENGTH
+    )
+    .fetch_all(deps.reader_pool(ReadConsistency::Eventual))
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows.into_iter().map(Into::into).collect())
+}
+
+async fn search_memories_hybrid<D>(
+    deps: &D,
+    deployment_id: i64,
+    query: &str,
+    embedding: &[f32],
+    filters: &MemoryQueryFilters,
+    fetch_limit: usize,
+    final_limit: usize,
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
+    let query_embedding = Vector::from(embedding.to_vec());
+    let categories = filters.categories.clone().unwrap_or_default();
+    let category_filter_enabled = filters.categories.is_some();
+
+    let rows = sqlx::query_as!(
+        MemoryRecordRow,
+        r#"
+        WITH semantic_candidates AS (
+            SELECT
+                id,
+                row_number() OVER (ORDER BY embedding <=> $3) as semantic_rank
+            FROM agent_memories
+            WHERE deployment_id = $1
+                AND embedding IS NOT NULL
+                AND (
+                    ($4::bigint IS NOT NULL AND actor_id = $4 AND memory_scope = 'actor')
+                    OR ($5::bigint IS NOT NULL AND project_id = $5 AND memory_scope = 'project')
+                    OR ($6::bigint IS NOT NULL AND thread_id = $6 AND memory_scope = 'thread')
+                )
+                AND (NOT $7::boolean OR memory_category = ANY($8::text[]))
+            ORDER BY embedding <=> $3
+            LIMIT $9
+        ), text_candidates AS (
+            SELECT
+                id,
+                row_number() OVER (ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', $2)) DESC, created_at DESC) as text_rank
+            FROM agent_memories
+            WHERE deployment_id = $1
+                AND embedding IS NOT NULL
+                AND (
+                    ($4::bigint IS NOT NULL AND actor_id = $4 AND memory_scope = 'actor')
+                    OR ($5::bigint IS NOT NULL AND project_id = $5 AND memory_scope = 'project')
+                    OR ($6::bigint IS NOT NULL AND thread_id = $6 AND memory_scope = 'thread')
+                )
+                AND (NOT $7::boolean OR memory_category = ANY($8::text[]))
+                AND search_vector @@ websearch_to_tsquery('english', $2)
+            ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', $2)) DESC, created_at DESC
+            LIMIT $9
+        ), merged AS (
+            SELECT
+                ids.id,
+                COALESCE(1.0 / ($12::double precision + semantic_candidates.semantic_rank::double precision), 0.0)
+                    + COALESCE(1.0 / ($12::double precision + text_candidates.text_rank::double precision), 0.0) as rrf_score
+            FROM (
+                SELECT id FROM semantic_candidates
+                UNION
+                SELECT id FROM text_candidates
+            ) ids
+            LEFT JOIN semantic_candidates ON semantic_candidates.id = ids.id
+            LEFT JOIN text_candidates ON text_candidates.id = ids.id
+        ), ranked AS (
+            SELECT
+                m.*,
+                memories.deployment_id,
+                memories.actor_id,
+                memories.project_id,
+                memories.thread_id,
+                memories.execution_run_id,
+                memories.owner_agent_id,
+                memories.recorded_by_agent_id,
+                memories.memory_scope,
+                memories.content,
+                memories.embedding,
+                memories.memory_category,
+                memories.metadata,
+                memories.created_at,
+                memories.updated_at,
+                (memories.embedding <=> $3) as distance,
+                row_number() OVER (
+                    ORDER BY m.rrf_score DESC, memories.id ASC
+                ) as rrf_position,
+                count(*) OVER () as total_count
+            FROM merged m
+            JOIN agent_memories memories ON memories.id = m.id
+            ORDER BY m.rrf_score DESC, memories.id ASC
+            LIMIT $10
+        ), recency_ranked AS (
+            SELECT
+                *,
+                row_number() OVER (
+                    ORDER BY rrf_position::double precision
+                        + ($13::double precision * GREATEST(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600.0, 0.0)) ASC
+                ) as position
+            FROM ranked
+        )
+        SELECT
+            id as "id!",
+            deployment_id,
+            actor_id,
+            project_id,
+            thread_id,
+            execution_run_id,
+            owner_agent_id,
+            recorded_by_agent_id,
+            memory_scope,
+            content,
+            embedding as "embedding: Vector",
+            memory_category,
+            metadata,
+            created_at,
+            updated_at,
+            distance
+        FROM recency_ranked
+        ORDER BY
+            (1.0 - ((position - 1)::double precision / GREATEST(total_count, 1)::double precision))
+            + ((CASE memory_category
+                WHEN 'fact' THEN 1.3
+                WHEN 'preference' THEN 1.2
+                WHEN 'observation' THEN 1.1
+                WHEN 'conversation_summary' THEN 0.9
+                ELSE 1.0
+            END - 1.0) * $14::double precision) DESC,
+            position ASC
+        LIMIT $11
+        "#,
+        deployment_id,
+        query,
+        query_embedding as Vector,
+        filters.actor_id,
+        filters.project_id,
+        filters.thread_id,
+        category_filter_enabled,
+        &categories,
+        fetch_limit as i64,
+        (final_limit * 3) as i64,
+        final_limit as i64,
+        RRF_K,
+        DECAY_PER_HOUR as f64,
+        CATEGORY_WEIGHT_STRENGTH
+    )
+    .fetch_all(deps.reader_pool(ReadConsistency::Eventual))
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows.into_iter().map(Into::into).collect())
+}
+
+async fn load_recent_memories_from_sources<D>(
+    deps: &D,
     deployment_id: i64,
     thread_id: i64,
     actor_id: i64,
@@ -594,8 +1077,10 @@ async fn load_recent_memories_from_sources(
     sources: &[MemorySource],
     categories: &[MemoryCategory],
     limit: usize,
-    embedding_dimension: i32,
-) -> Result<Vec<MemoryRecord>, AppError> {
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
     let deduped_sources = dedupe_sources(sources);
     if deduped_sources.is_empty() {
         return Ok(Vec::new());
@@ -605,37 +1090,93 @@ async fn load_recent_memories_from_sources(
     let mut groups = Vec::new();
 
     for source in deduped_sources {
-        let base_filter = match source {
-            MemorySource::Thread => format!(
-                "embedding IS NOT NULL AND thread_id = {} AND memory_scope = '{}'",
-                thread_id,
-                models::memory::scope::THREAD
-            ),
-            MemorySource::Project => format!(
-                "embedding IS NOT NULL AND project_id = {} AND memory_scope = '{}'",
-                project_id,
-                models::memory::scope::PROJECT
-            ),
-            MemorySource::Actor => format!(
-                "embedding IS NOT NULL AND actor_id = {} AND memory_scope = '{}'",
-                actor_id,
-                models::memory::scope::ACTOR
-            ),
-        };
-
         groups.push(
-            load_memories_in_table(
-                table,
+            load_recent_memories_for_source(
+                deps,
                 deployment_id,
-                &append_memory_category_filter(base_filter, categories),
+                thread_id,
+                actor_id,
+                project_id,
+                source,
+                categories,
                 per_source_limit,
-                embedding_dimension,
             )
             .await?,
         );
     }
 
     Ok(merge_unique_memories(groups, limit))
+}
+
+async fn load_recent_memories_for_source<D>(
+    deps: &D,
+    deployment_id: i64,
+    thread_id: i64,
+    actor_id: i64,
+    project_id: i64,
+    source: MemorySource,
+    categories: &[MemoryCategory],
+    limit: usize,
+) -> Result<Vec<MemoryRecord>, AppError>
+where
+    D: HasDbRouter + ?Sized,
+{
+    let (scope, source_actor_id, source_project_id, source_thread_id) = match source {
+        MemorySource::Thread => (models::memory::scope::THREAD, None, None, Some(thread_id)),
+        MemorySource::Project => (models::memory::scope::PROJECT, None, Some(project_id), None),
+        MemorySource::Actor => (models::memory::scope::ACTOR, Some(actor_id), None, None),
+    };
+    let categories = categories
+        .iter()
+        .map(|category| category.to_string())
+        .collect::<Vec<_>>();
+    let category_filter_enabled = !categories.is_empty();
+
+    let rows = sqlx::query_as!(
+        MemoryRecordRow,
+        r#"
+        SELECT
+            id,
+            deployment_id,
+            actor_id,
+            project_id,
+            thread_id,
+            execution_run_id,
+            owner_agent_id,
+            recorded_by_agent_id,
+            memory_scope,
+            content,
+            embedding as "embedding: Vector",
+            memory_category,
+            metadata,
+            created_at,
+            updated_at,
+            NULL::double precision as distance
+        FROM agent_memories
+        WHERE deployment_id = $1
+            AND embedding IS NOT NULL
+            AND memory_scope = $2
+            AND ($3::bigint IS NULL OR actor_id = $3)
+            AND ($4::bigint IS NULL OR project_id = $4)
+            AND ($5::bigint IS NULL OR thread_id = $5)
+            AND (NOT $6::boolean OR memory_category = ANY($7::text[]))
+        ORDER BY created_at DESC
+        LIMIT $8
+        "#,
+        deployment_id,
+        scope,
+        source_actor_id,
+        source_project_id,
+        source_thread_id,
+        category_filter_enabled,
+        &categories,
+        limit as i64
+    )
+    .fetch_all(deps.reader_pool(ReadConsistency::Eventual))
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows.into_iter().map(Into::into).collect())
 }
 
 fn dedupe_sources(sources: &[MemorySource]) -> Vec<MemorySource> {
@@ -649,19 +1190,6 @@ fn dedupe_sources(sources: &[MemorySource]) -> Vec<MemorySource> {
     }
 
     deduped
-}
-
-fn append_memory_category_filter(base_filter: String, categories: &[MemoryCategory]) -> String {
-    if categories.is_empty() {
-        return base_filter;
-    }
-
-    let joined = categories
-        .iter()
-        .map(|category| format!("'{}'", category.to_string().replace('\'', "''")))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{base_filter} AND memory_category IN ({joined})")
 }
 
 fn merge_unique_memories(groups: Vec<Vec<MemoryRecord>>, limit: usize) -> Vec<MemoryRecord> {
@@ -678,93 +1206,4 @@ fn merge_unique_memories(groups: Vec<Vec<MemoryRecord>>, limit: usize) -> Vec<Me
 
     merged.truncate(limit);
     merged
-}
-
-fn rrf_merge_memories(
-    semantic: Vec<MemoryRecord>,
-    full_text: Vec<MemoryRecord>,
-    limit: usize,
-) -> Vec<MemoryRecord> {
-    /// Standard RRF constant (Cormack et al. 2009). Highly-ranked documents
-    /// are insensitive to the exact value; K=60 is near-optimal across domains.
-    const RRF_K: f64 = 60.0;
-
-    // Score every document: rrf_score = sum(1 / (K + rank)) across lists.
-    // rank is 1-indexed position in the list.
-    let mut scores: std::collections::HashMap<i64, (f64, &MemoryRecord)> =
-        std::collections::HashMap::new();
-
-    for (rank, memory) in semantic.iter().enumerate() {
-        let rank_1 = (rank + 1) as f64;
-        let entry = scores.entry(memory.id).or_insert((0.0, memory));
-        entry.0 += 1.0 / (RRF_K + rank_1);
-    }
-    for (rank, memory) in full_text.iter().enumerate() {
-        let rank_1 = (rank + 1) as f64;
-        let entry = scores.entry(memory.id).or_insert((0.0, memory));
-        entry.0 += 1.0 / (RRF_K + rank_1);
-    }
-
-    let mut sorted: Vec<(i64, f64)> = scores
-        .iter()
-        .map(|(id, (score, _))| (*id, *score))
-        .collect();
-    sorted.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.0.cmp(&b.0))
-    });
-    sorted.truncate(limit);
-
-    // Reconstruct records in RRF order, preferring the semantic entry when a
-    // record appears in both lists (it carries the _distance column).
-    let semantic_by_id: std::collections::HashMap<i64, &MemoryRecord> =
-        semantic.iter().map(|m| (m.id, m)).collect();
-    let mut out: Vec<MemoryRecord> = Vec::with_capacity(sorted.len());
-    for (id, _score) in &sorted {
-        if let Some(memory) = semantic_by_id.get(id) {
-            out.push((*memory).clone());
-        } else if let Some(memory) = scores.get(id) {
-            out.push(memory.1.clone());
-        }
-    }
-
-    out
-}
-
-/// Applies category-based weight boosts to re-rank results.
-/// Higher-weight categories (facts, preferences) get a relevance bump so they
-/// surface above lower-weight categories at similar scores.
-fn apply_category_weights(memories: Vec<MemoryRecord>) -> Vec<MemoryRecord> {
-    let len = memories.len();
-    if len <= 1 {
-        return memories;
-    }
-
-    // Compute a boosted score per record: original position + category weight.
-    let weights: Vec<f64> = memories
-        .iter()
-        .enumerate()
-        .map(|(i, m)| {
-            let category = MemoryCategory::from_str(&m.memory_category)
-                .unwrap_or(MemoryCategory::Semantic);
-            let base = 1.0 - (i as f64 / len as f64); // normalised position [0..1]
-            let boost = (category.retrieval_weight() - 1.0) * CATEGORY_WEIGHT_STRENGTH;
-            base + boost
-        })
-        .collect();
-
-    let mut indices: Vec<usize> = (0..len).collect();
-    indices.sort_by(|a, b| {
-        weights[*b]
-            .partial_cmp(&weights[*a])
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-
-    // Build result in the new order (MemoryRecord derives Clone).
-    let mut result = Vec::with_capacity(len);
-    for &idx in &indices {
-        result.push(memories[idx].clone());
-    }
-    result
 }

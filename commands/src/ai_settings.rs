@@ -1,7 +1,4 @@
-use common::{
-    EncryptionService, HasDbRouter, HasEncryptionProvider, ensure_knowledge_base_indices,
-    error::AppError, initialize_memory_table,
-};
+use common::{EncryptionService, HasDbRouter, HasEncryptionProvider, error::AppError};
 use models::{
     DeploymentAiSettings, UpdateDeploymentAiSettingsRequest, is_supported_embedding_dimension,
 };
@@ -206,7 +203,7 @@ impl UpdateDeploymentAiSettingsCommand {
             || self.updates.embedding_provider.is_some()
             || self.updates.embedding_model.is_some();
 
-        let mut result = sqlx::query_as!(
+        let result = sqlx::query_as!(
             DeploymentAiSettings,
             r#"
             UPDATE deployment_ai_settings SET
@@ -288,48 +285,6 @@ impl UpdateDeploymentAiSettingsCommand {
         )
         .fetch_one(writer)
         .await?;
-
-        if storage_updates.is_some() {
-            initialize_vector_stores(&result, deps).await?;
-            result = sqlx::query_as!(
-                DeploymentAiSettings,
-                r#"
-                UPDATE deployment_ai_settings SET
-                    vector_store_initialized_at = NOW(),
-                    updated_at = NOW()
-                WHERE deployment_id = $1
-                RETURNING
-                    id,
-                    deployment_id,
-                    strong_llm_provider,
-                    weak_llm_provider,
-                    gemini_api_key,
-                    openrouter_api_key,
-                    openrouter_require_parameters,
-                    openai_api_key,
-                    anthropic_api_key,
-                    strong_model,
-                    weak_model,
-                    embedding_provider,
-                    embedding_model,
-                    embedding_dimension,
-                    storage_provider,
-                    storage_bucket,
-                    storage_region,
-                    storage_endpoint,
-                    storage_root_prefix,
-                    storage_force_path_style,
-                    storage_access_key_id,
-                    storage_secret_access_key,
-                    vector_store_initialized_at,
-                    created_at,
-                    updated_at
-                "#,
-                self.deployment_id
-            )
-            .fetch_one(writer)
-            .await?;
-        }
 
         Ok(result)
     }
@@ -417,39 +372,6 @@ fn encrypt_ai_settings_updates(
             .map(|value| encryptor.encrypt(value))
             .transpose()?,
     })
-}
-
-async fn initialize_vector_stores<D>(
-    settings: &DeploymentAiSettings,
-    deps: &D,
-) -> Result<(), AppError>
-where
-    D: HasDbRouter + HasEncryptionProvider,
-{
-    let storage = crate::ResolveDeploymentStorageCommand::new(settings.deployment_id)
-        .execute_with_deps(deps)
-        .await?;
-    let lance_config = storage.vector_store_config();
-
-    ensure_knowledge_base_indices(&lance_config)
-        .await
-        .map_err(|error| {
-            AppError::Internal(format!(
-                "Knowledge base LanceDB initialization failed for {}: {}",
-                lance_config.uri, error
-            ))
-        })?;
-
-    initialize_memory_table(&lance_config)
-        .await
-        .map_err(|error| {
-            AppError::Internal(format!(
-                "Memory LanceDB initialization failed for {}: {}",
-                lance_config.uri, error
-            ))
-        })?;
-
-    Ok(())
 }
 
 /// Command to clear a specific API key from deployment AI settings

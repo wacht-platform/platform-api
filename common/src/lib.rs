@@ -11,7 +11,6 @@ pub mod encryption;
 pub mod filename;
 pub mod json_utils;
 pub mod knowledge_base_store;
-pub mod memory_store;
 pub mod postmark;
 pub mod result_ext;
 pub mod smtp;
@@ -20,7 +19,6 @@ pub mod telemetry;
 pub mod text_processing;
 pub mod utils;
 pub mod validators;
-pub mod vector_store;
 
 pub use capabilities::*;
 pub use clickhouse::*;
@@ -33,12 +31,10 @@ pub use embedding::*;
 pub use encryption::*;
 pub use filename::*;
 pub use knowledge_base_store::*;
-pub use memory_store::*;
 pub use postmark::*;
 pub use result_ext::*;
 pub use smtp::*;
 pub use telemetry::*;
 pub use text_processing::*;
-pub use vector_store::*;
 
 pub use models::error;

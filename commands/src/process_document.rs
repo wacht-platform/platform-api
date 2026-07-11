@@ -1,6 +1,5 @@
 use crate::{
-    DispatchVectorStoreMaintenanceTaskCommand, GenerateEmbeddingsCommand,
-    ResolveDeploymentStorageCommand, VECTOR_STORE_KNOWLEDGE_BASE,
+    GenerateEmbeddingsCommand, ResolveDeploymentStorageCommand,
     ai_knowledge_base_document_status::MarkKnowledgeBaseDocumentFailedCommand,
     build_multimodal_retrieval_document_parts, resolve_deployment_embedding_dimension,
     resolve_deployment_embedding_settings,
@@ -8,8 +7,7 @@ use crate::{
 use common::ResultExt;
 use common::{
     EmbeddingApiProvider, EmbeddingPart, HasDbRouter, HasEmbeddingProvider, HasEncryptionProvider,
-    HasNatsProvider, HasTextProcessingProvider, KnowledgeBaseChunkRecord, error::AppError,
-    replace_document_chunks,
+    HasTextProcessingProvider, KnowledgeBaseChunkRecord, error::AppError, replace_document_chunks,
 };
 const KNOWLEDGE_CHUNK_SIZE_TOKENS: usize = 5_000;
 const KNOWLEDGE_CHUNK_OVERLAP_TOKENS: usize = 500;
@@ -35,7 +33,6 @@ impl ProcessDocumentCommand {
         D: HasDbRouter
             + HasEncryptionProvider
             + HasEmbeddingProvider
-            + HasNatsProvider
             + HasTextProcessingProvider
             + ?Sized,
     {
@@ -80,15 +77,7 @@ impl ProcessDocumentCommand {
             .into_bytes()
             .to_vec();
 
-        let lance_config = storage.vector_store_config();
-        if !storage.vector_store_initialized {
-            return Err(AppError::Validation(
-                "Deployment vector store is not initialized. Re-save AI storage settings first."
-                    .to_string(),
-            ));
-        }
-
-        let lance_rows = if file_type.eq_ignore_ascii_case("application/pdf")
+        let rows = if file_type.eq_ignore_ascii_case("application/pdf")
             || file_type.eq_ignore_ascii_case("pdf")
         {
             let pdf_chunks = deps
@@ -108,7 +97,7 @@ impl ProcessDocumentCommand {
             let embedding_settings =
                 resolve_deployment_embedding_settings(deps, self.deployment_id).await?;
             let mut rows = Vec::with_capacity(pdf_chunks.len());
-            for pdf_chunk in pdf_chunks {
+            for (chunk_index, pdf_chunk) in pdf_chunks.into_iter().enumerate() {
                 let content = format!(
                     "title: {} | pages: {}-{}",
                     title, pdf_chunk.start_page, pdf_chunk.end_page
@@ -158,6 +147,7 @@ impl ProcessDocumentCommand {
                 rows.push(KnowledgeBaseChunkRecord {
                     knowledge_base_id: self.knowledge_base_id,
                     document_id,
+                    chunk_index: chunk_index as i32,
                     path: storage_object_key.clone(),
                     title: title.clone(),
                     description: description.clone(),
@@ -211,30 +201,25 @@ impl ProcessDocumentCommand {
             chunks
                 .iter()
                 .zip(embeddings.into_iter())
-                .map(|(chunk, embedding)| KnowledgeBaseChunkRecord {
-                    knowledge_base_id: self.knowledge_base_id,
-                    document_id,
-                    path: storage_object_key.clone(),
-                    title: title.clone(),
-                    description: description.clone(),
-                    content: chunk.content.clone(),
-                    embedding: Some(embedding),
-                })
+                .enumerate()
+                .map(
+                    |(chunk_index, (chunk, embedding))| KnowledgeBaseChunkRecord {
+                        knowledge_base_id: self.knowledge_base_id,
+                        document_id,
+                        chunk_index: chunk_index as i32,
+                        path: storage_object_key.clone(),
+                        title: title.clone(),
+                        description: description.clone(),
+                        content: chunk.content.clone(),
+                        embedding: Some(embedding),
+                    },
+                )
                 .collect::<Vec<_>>()
         };
 
         let embedding_dimension =
             resolve_deployment_embedding_dimension(deps, self.deployment_id).await?;
-        replace_document_chunks(&lance_config, document_id, &lance_rows, embedding_dimension)
-            .await?;
-
-        DispatchVectorStoreMaintenanceTaskCommand::new(
-            self.deployment_id,
-            VECTOR_STORE_KNOWLEDGE_BASE.to_string(),
-            format!("document-{}", document_id),
-        )
-        .execute_with_deps(deps)
-        .await?;
+        replace_document_chunks(deps, document_id, &rows, embedding_dimension).await?;
 
         let _ = sqlx::query!(
             r#"
@@ -251,7 +236,7 @@ impl ProcessDocumentCommand {
             updated_at = $2
             WHERE id = $3
             "#,
-            lance_rows.len().to_string(),
+            rows.len().to_string(),
             chrono::Utc::now(),
             document_id
         )
@@ -260,7 +245,7 @@ impl ProcessDocumentCommand {
         Ok(format!(
             "Processed document {} into {} chunks",
             title,
-            lance_rows.len()
+            rows.len()
         ))
     }
 }
