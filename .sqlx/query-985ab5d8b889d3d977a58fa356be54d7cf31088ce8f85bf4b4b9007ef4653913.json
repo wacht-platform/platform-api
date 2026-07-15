@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO deployment_ai_settings (deployment_id)\n            VALUES ($1)\n            RETURNING\n                id,\n                deployment_id,\n                strong_llm_provider,\n                weak_llm_provider,\n                gemini_api_key,\n                openrouter_api_key,\n                openrouter_require_parameters,\n                openai_api_key,\n                anthropic_api_key,\n                strong_model,\n                weak_model,\n                embedding_provider,\n                embedding_model,\n                embedding_dimension,\n                storage_provider,\n                storage_bucket,\n                storage_region,\n                storage_endpoint,\n                storage_root_prefix,\n                storage_force_path_style,\n                storage_access_key_id,\n                storage_secret_access_key,\n                vector_store_initialized_at,\n                created_at,\n                updated_at\n            ",
+  "query": "\n            SELECT\n                id,\n                deployment_id,\n                strong_llm_provider,\n                weak_llm_provider,\n                gemini_api_key,\n                openrouter_api_key,\n                openrouter_require_parameters,\n                openai_api_key,\n                anthropic_api_key,\n                strong_model,\n                weak_model,\n                embedding_provider,\n                embedding_model,\n                embedding_dimension,\n                storage_provider,\n                storage_bucket,\n                storage_region,\n                storage_endpoint,\n                storage_root_prefix,\n                storage_force_path_style,\n                storage_access_key_id,\n                storage_secret_access_key,\n                created_at,\n                updated_at\n            FROM deployment_ai_settings\n            WHERE deployment_id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -115,16 +115,11 @@
       },
       {
         "ordinal": 22,
-        "name": "vector_store_initialized_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 23,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 24,
+        "ordinal": 23,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -157,10 +152,9 @@
       false,
       true,
       true,
-      true,
       false,
       false
     ]
   },
-  "hash": "8ec576f95068e7f1fcd7fd575156c82614830876d80c87adfcc8b4cbfa19de4c"
+  "hash": "985ab5d8b889d3d977a58fa356be54d7cf31088ce8f85bf4b4b9007ef4653913"
 }

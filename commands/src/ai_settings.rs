@@ -66,7 +66,6 @@ impl CreateDeploymentAiSettingsCommand {
                 storage_force_path_style,
                 storage_access_key_id,
                 storage_secret_access_key,
-                vector_store_initialized_at,
                 created_at,
                 updated_at
             "#,
@@ -198,10 +197,6 @@ impl UpdateDeploymentAiSettingsCommand {
         let storage_root_prefix = storage_root_prefix.as_deref();
         let storage_access_key_id = encrypted_updates.storage_access_key_id.as_deref();
         let storage_secret_access_key = encrypted_updates.storage_secret_access_key.as_deref();
-        let reset_vector_store_initialized_at = storage_updates.is_some()
-            || self.updates.embedding_dimension.is_some()
-            || self.updates.embedding_provider.is_some()
-            || self.updates.embedding_model.is_some();
 
         let result = sqlx::query_as!(
             DeploymentAiSettings,
@@ -227,10 +222,6 @@ impl UpdateDeploymentAiSettingsCommand {
                 storage_force_path_style = COALESCE($19, storage_force_path_style),
                 storage_access_key_id = COALESCE($20, storage_access_key_id),
                 storage_secret_access_key = COALESCE($21, storage_secret_access_key),
-                vector_store_initialized_at = CASE
-                    WHEN $22::boolean THEN NULL
-                    ELSE vector_store_initialized_at
-                END,
                 updated_at = NOW()
             WHERE deployment_id = $1
             RETURNING
@@ -256,7 +247,6 @@ impl UpdateDeploymentAiSettingsCommand {
                 storage_force_path_style,
                 storage_access_key_id,
                 storage_secret_access_key,
-                vector_store_initialized_at,
                 created_at,
                 updated_at
             "#,
@@ -281,7 +271,6 @@ impl UpdateDeploymentAiSettingsCommand {
             storage_force_path_style,
             storage_access_key_id,
             storage_secret_access_key,
-            reset_vector_store_initialized_at,
         )
         .fetch_one(writer)
         .await?;

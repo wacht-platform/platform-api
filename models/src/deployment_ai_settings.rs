@@ -123,7 +123,6 @@ pub struct DeploymentAiSettings {
     pub storage_force_path_style: bool,
     pub storage_access_key_id: Option<String>,
     pub storage_secret_access_key: Option<String>,
-    pub vector_store_initialized_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
