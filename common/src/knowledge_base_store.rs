@@ -54,15 +54,8 @@ where
         .await
         .map_err(AppError::Database)?;
 
-    let insert_sql = format!(
-        "INSERT INTO knowledge_base_chunks (knowledge_base_id, document_id, chunk_index, path, title, description, content, {}, {}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-        column,
-        if column == "embedding" {
-            "embedding_768"
-        } else {
-            "embedding"
-        }
-    );
+    let insert_sql =
+        "INSERT INTO knowledge_base_chunks (knowledge_base_id, document_id, chunk_index, path, title, description, content, embedding, embedding_768) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)";
 
     for chunk in chunks {
         let embedding = chunk.embedding.clone().map(Vector::from);
@@ -72,7 +65,7 @@ where
             (None, embedding)
         };
 
-        sqlx::query(&insert_sql)
+        sqlx::query(insert_sql)
             .bind(chunk.knowledge_base_id)
             .bind(chunk.document_id)
             .bind(chunk.chunk_index)
@@ -278,7 +271,7 @@ where
             chunks.content,
             chunks.title AS document_title,
             chunks.description AS document_description,
-            (1.0 - (chunks.{0} <=> $4))::double precision AS vector_similarity,
+            COALESCE((1.0 - (chunks.{0} <=> $4))::double precision, 0.0) AS vector_similarity,
             COALESCE(text_candidates.raw_text_rank, 0.0)::double precision AS text_rank,
             merged.combined_score::double precision AS combined_score
         FROM merged
