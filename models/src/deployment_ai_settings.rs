@@ -46,7 +46,7 @@ pub const EMBEDDING_DIMENSION_1536: i32 = 1536;
 pub const EMBEDDING_DIMENSION_768: i32 = 768;
 
 pub fn default_embedding_dimension() -> i32 {
-    EMBEDDING_DIMENSION_1536
+    EMBEDDING_DIMENSION_768
 }
 
 pub fn is_supported_embedding_dimension(value: i32) -> bool {
