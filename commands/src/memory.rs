@@ -313,7 +313,40 @@ impl UpdateAgentMemoryCommand {
             + HasIdProvider
             + ?Sized,
     {
-        let existing = load_memory_by_id(deps, self.deployment_id, self.memory_id).await?;
+        let mut tx = deps.writer_pool().begin().await.map_err(AppError::Database)?;
+
+        let existing = sqlx::query_as!(
+            MemoryRecordRow,
+            r#"
+            SELECT
+                id,
+                deployment_id,
+                actor_id,
+                project_id,
+                thread_id,
+                execution_run_id,
+                owner_agent_id,
+                recorded_by_agent_id,
+                memory_scope,
+                content,
+                embedding as "embedding: Vector",
+                memory_category,
+                metadata,
+                created_at,
+                updated_at,
+                NULL::double precision as distance
+            FROM agent_memories
+            WHERE deployment_id = $1 AND id = $2
+            FOR UPDATE
+            LIMIT 1
+            "#,
+            self.deployment_id,
+            self.memory_id
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound(format!("Memory {} not found", self.memory_id)))?;
 
         let scope_changed = self
             .scope
@@ -342,11 +375,7 @@ impl UpdateAgentMemoryCommand {
                 AppError::Internal("Failed to generate embedding for updated memory".to_string())
             })?
         } else {
-            existing.embedding.clone().ok_or_else(|| {
-                AppError::Internal(
-                    "Existing memory has no embedding to preserve during update".to_string(),
-                )
-            })?
+            existing.embedding.to_vec()
         };
 
         let category = self
@@ -449,11 +478,12 @@ impl UpdateAgentMemoryCommand {
             metadata,
             now
         )
-        .fetch_optional(deps.writer_pool())
+        .fetch_optional(&mut *tx)
         .await
         .map_err(AppError::Database)?
         .ok_or_else(|| AppError::NotFound(format!("Memory {} not found", self.memory_id)))?;
 
+        tx.commit().await.map_err(AppError::Database)?;
         Ok(row.into())
     }
 }
