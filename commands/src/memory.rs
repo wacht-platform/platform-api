@@ -650,49 +650,6 @@ where
     Ok(rows.into_iter().map(Into::into).collect())
 }
 
-async fn load_memory_by_id<D>(
-    deps: &D,
-    deployment_id: i64,
-    memory_id: i64,
-) -> Result<MemoryRecord, AppError>
-where
-    D: HasDbRouter + ?Sized,
-{
-    let row = sqlx::query_as!(
-        MemoryRecordRow,
-        r#"
-        SELECT
-            id,
-            deployment_id,
-            actor_id,
-            project_id,
-            thread_id,
-            execution_run_id,
-            owner_agent_id,
-            recorded_by_agent_id,
-            memory_scope,
-            content,
-            embedding as "embedding: Vector",
-            memory_category,
-            metadata,
-            created_at,
-            updated_at,
-            NULL::double precision as distance
-        FROM agent_memories
-        WHERE deployment_id = $1 AND id = $2
-        LIMIT 1
-        "#,
-        deployment_id,
-        memory_id
-    )
-    .fetch_optional(deps.reader_pool(ReadConsistency::Strong))
-    .await
-    .map_err(AppError::Database)?
-    .ok_or_else(|| AppError::NotFound(format!("Memory {} not found", memory_id)))?;
-
-    Ok(row.into())
-}
-
 async fn build_query_embedding<D>(
     deps: &D,
     deployment_id: i64,

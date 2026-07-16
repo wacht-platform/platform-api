@@ -14,7 +14,11 @@ CREATE TABLE IF NOT EXISTS knowledge_base_chunks (
     search_vector TSVECTOR GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT knowledge_base_chunks_document_chunk_key UNIQUE (document_id, chunk_index)
+    CONSTRAINT knowledge_base_chunks_document_chunk_key UNIQUE (document_id, chunk_index),
+    CONSTRAINT knowledge_base_chunks_knowledge_base_fk
+        FOREIGN KEY (knowledge_base_id) REFERENCES ai_knowledge_bases(id) ON DELETE CASCADE,
+    CONSTRAINT knowledge_base_chunks_document_fk
+        FOREIGN KEY (document_id) REFERENCES ai_knowledge_base_documents(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS knowledge_base_chunks_knowledge_base_idx
