@@ -10,8 +10,6 @@ use queries::GetAiKnowledgeBaseByIdQuery;
 use chrono::Utc;
 use sqlx::Row;
 
-use crate::ResolveDeploymentStorageCommand;
-
 pub struct CreateAiKnowledgeBaseCommand {
     pub knowledge_base_id: Option<i64>,
     pub deployment_id: i64,
@@ -299,30 +297,7 @@ impl DeleteAiKnowledgeBaseCommand {
             );
         }
 
-        match ResolveDeploymentStorageCommand::new(self.deployment_id)
-            .execute_with_deps(deps)
-            .await
-        {
-            Ok(storage) => {
-                let lance_config = storage.vector_store_config();
-                if let Err(e) =
-                    delete_knowledge_base_chunks(&lance_config, self.knowledge_base_id).await
-                {
-                    tracing::warn!(
-                        "Failed to delete LanceDB chunks for KB {}: {}",
-                        self.knowledge_base_id,
-                        e
-                    );
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to resolve deployment storage for KB {} LanceDB cleanup: {}",
-                    self.knowledge_base_id,
-                    e
-                );
-            }
-        }
+        delete_knowledge_base_chunks(deps, self.knowledge_base_id).await?;
 
         let mut tx = deps
             .db_router()
@@ -529,28 +504,7 @@ impl DeleteKnowledgeBaseDocumentCommand {
             tracing::warn!("Failed to delete file from storage: {}", e);
         }
 
-        match ResolveDeploymentStorageCommand::new(self.deployment_id)
-            .execute_with_deps(deps)
-            .await
-        {
-            Ok(storage) => {
-                let lance_config = storage.vector_store_config();
-                if let Err(e) = delete_document_chunks(&lance_config, self.document_id).await {
-                    tracing::warn!(
-                        "Failed to delete LanceDB chunks for document {}: {}",
-                        self.document_id,
-                        e
-                    );
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to resolve deployment storage for document {} LanceDB cleanup: {}",
-                    self.document_id,
-                    e
-                );
-            }
-        }
+        delete_document_chunks(deps, self.document_id).await?;
 
         sqlx::query!(
             "DELETE FROM ai_knowledge_base_documents WHERE id = $1 AND knowledge_base_id = $2",

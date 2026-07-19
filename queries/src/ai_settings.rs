@@ -53,7 +53,6 @@ impl GetDeploymentAiSettingsQuery {
                 storage_force_path_style,
                 storage_access_key_id,
                 storage_secret_access_key,
-                vector_store_initialized_at,
                 created_at,
                 updated_at
             FROM deployment_ai_settings

@@ -102,7 +102,8 @@ pub fn validate_terminal_payload_shape(
         for artifact in artifacts {
             if artifact.path.trim().is_empty() {
                 return Err(AppError::BadRequest(
-                    "update_project_task: each `artifacts` entry needs a non-empty `path`.".to_string(),
+                    "update_project_task: each `artifacts` entry needs a non-empty `path`."
+                        .to_string(),
                 ));
             }
         }

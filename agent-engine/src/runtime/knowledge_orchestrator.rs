@@ -43,8 +43,12 @@ impl KnowledgeOrchestrator {
         // Only the agent's own knowledge bases are searchable; intersect any
         // caller-supplied ids with the allow-list so a tool call can't read
         // another agent's KB in the same deployment.
-        let allowed: std::collections::HashSet<i64> =
-            self.agent().knowledge_bases.iter().map(|kb| kb.id).collect();
+        let allowed: std::collections::HashSet<i64> = self
+            .agent()
+            .knowledge_bases
+            .iter()
+            .map(|kb| kb.id)
+            .collect();
         let kb_ids: Vec<i64> = if let Some(ids) = knowledge_base_ids {
             ids.into_iter()
                 .filter_map(|id| id.parse::<i64>().ok())

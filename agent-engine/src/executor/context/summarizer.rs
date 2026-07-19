@@ -282,7 +282,9 @@ impl AgentExecutor {
                         .get("category")
                         .and_then(|v| v.as_str())
                         .map(str::to_string);
-                    feedback = self.summarizer_save_memory(content, category, observation).await;
+                    feedback = self
+                        .summarizer_save_memory(content, category, observation)
+                        .await;
                 }
                 "finalize" => {
                     let missing = required_missing(&sections);
@@ -316,7 +318,10 @@ impl AgentExecutor {
             // Hard-trim to the budget as a safety net at the turn cap.
             let assembled = assemble(&sections);
             return Ok(if assembled.chars().count() > SUMMARY_BUDGET_CHARS {
-                assembled.chars().take(SUMMARY_BUDGET_CHARS).collect::<String>()
+                assembled
+                    .chars()
+                    .take(SUMMARY_BUDGET_CHARS)
+                    .collect::<String>()
                     + "\n…[trimmed to fit the 6k-token budget]"
             } else {
                 assembled
@@ -365,7 +370,12 @@ impl AgentExecutor {
         }
     }
 
-    async fn summarizer_save_memory(&self, content: String, category: Option<String>, observation: Option<String>) -> String {
+    async fn summarizer_save_memory(
+        &self,
+        content: String,
+        category: Option<String>,
+        observation: Option<String>,
+    ) -> String {
         let thread = match self.ctx.get_thread().await {
             Ok(thread) => thread,
             Err(error) => return format!("memory save unavailable: {error}"),

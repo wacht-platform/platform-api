@@ -492,9 +492,14 @@ impl AgentExecutor {
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("application/octet-stream");
                                 if let Some(path) = path {
-                                    if !self.ctx.image_support_disabled(crate::llm::LlmRole::Strong) {
-                                        if let Ok(bytes) = self.filesystem.read_file_bytes(path).await {
-                                            use base64::{engine::general_purpose::STANDARD, Engine};
+                                    if !self.ctx.image_support_disabled(crate::llm::LlmRole::Strong)
+                                    {
+                                        if let Ok(bytes) =
+                                            self.filesystem.read_file_bytes(path).await
+                                        {
+                                            use base64::{
+                                                engine::general_purpose::STANDARD, Engine,
+                                            };
                                             inline_parts.push(LlmHistoryPart::inline_data(
                                                 mime_type,
                                                 STANDARD.encode(bytes),
@@ -1938,8 +1943,9 @@ Output plain text. No JSON, no code fences, no preface.";
         let record = self
             .create_conversation_with_metadata(
                 ConversationContent::ExecutionSummary {
-                    user_message: "Recent activity orientation (condensed; raw events were compacted)"
-                        .to_string(),
+                    user_message:
+                        "Recent activity orientation (condensed; raw events were compacted)"
+                            .to_string(),
                     agent_execution: trimmed.to_string(),
                 },
                 ConversationMessageType::ExecutionSummary,

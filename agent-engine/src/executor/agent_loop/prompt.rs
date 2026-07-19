@@ -328,7 +328,8 @@ impl AgentExecutor {
         }
         let comment_timeline = match self.current_board_item_id() {
             Some(board_item_id) if is_coordinator && board_item_id > 0 => {
-                self.load_comment_timeline_for_board_item(board_item_id).await?
+                self.load_comment_timeline_for_board_item(board_item_id)
+                    .await?
             }
             _ => Vec::new(),
         };

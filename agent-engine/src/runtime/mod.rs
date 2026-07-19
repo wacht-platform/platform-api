@@ -9,5 +9,5 @@ pub use handler::{AgentHandler, ExecutionRequest};
 pub use knowledge_orchestrator::KnowledgeOrchestrator;
 pub use secrets_provider::{SecretsProvider, SettingsSecretsProvider};
 pub use vector_store::{
-    LanceDbVectorStore, LanceDbVectorStoreFactory, VectorStore, VectorStoreFactory,
+    PostgresVectorStore, PostgresVectorStoreFactory, VectorStore, VectorStoreFactory,
 };

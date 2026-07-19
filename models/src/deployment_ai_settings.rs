@@ -46,7 +46,7 @@ pub const EMBEDDING_DIMENSION_1536: i32 = 1536;
 pub const EMBEDDING_DIMENSION_768: i32 = 768;
 
 pub fn default_embedding_dimension() -> i32 {
-    EMBEDDING_DIMENSION_1536
+    EMBEDDING_DIMENSION_768
 }
 
 pub fn is_supported_embedding_dimension(value: i32) -> bool {
@@ -123,7 +123,6 @@ pub struct DeploymentAiSettings {
     pub storage_force_path_style: bool,
     pub storage_access_key_id: Option<String>,
     pub storage_secret_access_key: Option<String>,
-    pub vector_store_initialized_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

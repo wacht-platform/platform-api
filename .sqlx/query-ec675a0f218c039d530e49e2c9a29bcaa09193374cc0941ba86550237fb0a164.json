@@ -1,0 +1,135 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH semantic_candidates AS (\n            SELECT\n                id,\n                row_number() OVER (ORDER BY embedding <=> $3) as semantic_rank\n            FROM agent_memories\n            WHERE deployment_id = $1\n                AND embedding IS NOT NULL\n                AND (\n                    ($4::bigint IS NOT NULL AND actor_id = $4 AND memory_scope = 'actor')\n                    OR ($5::bigint IS NOT NULL AND project_id = $5 AND memory_scope = 'project')\n                    OR ($6::bigint IS NOT NULL AND thread_id = $6 AND memory_scope = 'thread')\n                )\n                AND (NOT $7::boolean OR memory_category = ANY($8::text[]))\n            ORDER BY embedding <=> $3\n            LIMIT $9\n        ), text_candidates AS (\n            SELECT\n                id,\n                row_number() OVER (ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', $2)) DESC, created_at DESC) as text_rank\n            FROM agent_memories\n            WHERE deployment_id = $1\n                AND embedding IS NOT NULL\n                AND (\n                    ($4::bigint IS NOT NULL AND actor_id = $4 AND memory_scope = 'actor')\n                    OR ($5::bigint IS NOT NULL AND project_id = $5 AND memory_scope = 'project')\n                    OR ($6::bigint IS NOT NULL AND thread_id = $6 AND memory_scope = 'thread')\n                )\n                AND (NOT $7::boolean OR memory_category = ANY($8::text[]))\n                AND search_vector @@ websearch_to_tsquery('english', $2)\n            ORDER BY ts_rank_cd(search_vector, websearch_to_tsquery('english', $2)) DESC, created_at DESC\n            LIMIT $9\n        ), merged AS (\n            SELECT\n                ids.id,\n                COALESCE(1.0 / ($12::double precision + semantic_candidates.semantic_rank::double precision), 0.0)\n                    + COALESCE(1.0 / ($12::double precision + text_candidates.text_rank::double precision), 0.0) as rrf_score\n            FROM (\n                SELECT id FROM semantic_candidates\n                UNION\n                SELECT id FROM text_candidates\n            ) ids\n            LEFT JOIN semantic_candidates ON semantic_candidates.id = ids.id\n            LEFT JOIN text_candidates ON text_candidates.id = ids.id\n        ), ranked AS (\n            SELECT\n                m.*,\n                memories.deployment_id,\n                memories.actor_id,\n                memories.project_id,\n                memories.thread_id,\n                memories.execution_run_id,\n                memories.owner_agent_id,\n                memories.recorded_by_agent_id,\n                memories.memory_scope,\n                memories.content,\n                memories.embedding,\n                memories.memory_category,\n                memories.metadata,\n                memories.created_at,\n                memories.updated_at,\n                (memories.embedding <=> $3) as distance,\n                row_number() OVER (\n                    ORDER BY m.rrf_score DESC, memories.id ASC\n                ) as rrf_position,\n                count(*) OVER () as total_count\n            FROM merged m\n            JOIN agent_memories memories ON memories.id = m.id\n            ORDER BY m.rrf_score DESC, memories.id ASC\n            LIMIT $10\n        ), recency_ranked AS (\n            SELECT\n                *,\n                row_number() OVER (\n                    ORDER BY rrf_position::double precision\n                        + ($13::double precision * GREATEST(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600.0, 0.0)) ASC\n                ) as position\n            FROM ranked\n        )\n        SELECT\n            id as \"id!\",\n            deployment_id,\n            actor_id,\n            project_id,\n            thread_id,\n            execution_run_id,\n            owner_agent_id,\n            recorded_by_agent_id,\n            memory_scope,\n            content,\n            embedding as \"embedding: Vector\",\n            memory_category,\n            metadata,\n            created_at,\n            updated_at,\n            distance\n        FROM recency_ranked\n        ORDER BY\n            (1.0 - ((position - 1)::double precision / GREATEST(total_count, 1)::double precision))\n            + ((CASE memory_category\n                WHEN 'fact' THEN 1.3\n                WHEN 'preference' THEN 1.2\n                WHEN 'observation' THEN 1.1\n                WHEN 'conversation_summary' THEN 0.9\n                ELSE 1.0\n            END - 1.0) * $14::double precision) DESC,\n            position ASC\n        LIMIT $11\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "deployment_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "actor_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "project_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "thread_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "execution_run_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "owner_agent_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "recorded_by_agent_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "memory_scope",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "embedding: Vector",
+        "type_info": {
+          "Custom": {
+            "name": "vector",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "memory_category",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 13,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 15,
+        "name": "distance",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        {
+          "Custom": {
+            "name": "vector",
+            "kind": "Simple"
+          }
+        },
+        "Int8",
+        "Int8",
+        "Int8",
+        "Bool",
+        "TextArray",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Float8",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "ec675a0f218c039d530e49e2c9a29bcaa09193374cc0941ba86550237fb0a164"
+}

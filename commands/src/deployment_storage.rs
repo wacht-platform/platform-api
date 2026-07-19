@@ -3,10 +3,7 @@ use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::config::{Builder as S3ConfigBuilder, Credentials};
 use aws_sdk_s3::primitives::ByteStream;
 use common::ResultExt;
-use common::{
-    HasDbRouter, HasEncryptionProvider, VectorStoreConfig, build_vector_store_config,
-    db_router::ReadConsistency, error::AppError,
-};
+use common::{HasDbRouter, HasEncryptionProvider, db_router::ReadConsistency, error::AppError};
 use models::DeploymentStorageProvider;
 
 const DEFAULT_DEPLOYMENT_S3_REGION: &str = "auto";
@@ -43,7 +40,6 @@ pub struct ResolvedDeploymentStorage {
     pub force_path_style: bool,
     pub access_key_id: Option<String>,
     pub secret_access_key: Option<String>,
-    pub vector_store_initialized: bool,
 }
 
 impl ResolvedDeploymentStorage {
@@ -61,18 +57,6 @@ impl ResolvedDeploymentStorage {
             Some(prefix) => format!("{}/{}", prefix, normalized_key),
             None => normalized_key,
         }
-    }
-
-    pub fn vector_store_config(&self) -> VectorStoreConfig {
-        build_vector_store_config(
-            &self.bucket,
-            self.root_prefix.as_deref(),
-            self.endpoint.as_deref(),
-            &self.region,
-            self.access_key_id.as_deref(),
-            self.secret_access_key.as_deref(),
-            self.force_path_style,
-        )
     }
 }
 
@@ -377,7 +361,6 @@ where
         force_path_style: config.force_path_style,
         access_key_id: Some(config.access_key_id.clone()),
         secret_access_key: Some(config.secret_access_key.clone()),
-        vector_store_initialized: settings.vector_store_initialized_at.is_some(),
     })
 }
 

@@ -111,8 +111,12 @@ impl MemoryCategory {
             Self::Procedural => "Validated steps to accomplish a recurring task.",
             Self::Fact => "A short, specific fact — e.g. \"User's timezone is UTC+2\".",
             Self::Preference => "A preference or setting — e.g. \"User prefers verbose output\".",
-            Self::Observation => "What happened, the outcome, and why it matters — e.g. \"Build failed because X; rerun with Y flag\".",
-            Self::ConversationSummary => "A condensed summary of what was discussed, decided, or produced in a conversation.",
+            Self::Observation => {
+                "What happened, the outcome, and why it matters — e.g. \"Build failed because X; rerun with Y flag\"."
+            }
+            Self::ConversationSummary => {
+                "A condensed summary of what was discussed, decided, or produced in a conversation."
+            }
         }
     }
 }

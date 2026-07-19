@@ -543,11 +543,7 @@ impl AgentExecutor {
                     .as_ref()
                     .and_then(|item| item.typed_metadata().schedule_carryover);
                 let ((workspace, journal_hash), task_journal_tail) = tokio::try_join!(
-                    self.prepare_task_workspace_for_key(
-                        &task_key,
-                        &title,
-                        board_item.as_ref(),
-                    ),
+                    self.prepare_task_workspace_for_key(&task_key, &title, board_item.as_ref(),),
                     self.task_journal_tail_snippet(),
                 )?;
                 self.initialize_task_journal_start_hash(journal_hash)
@@ -1439,8 +1435,10 @@ impl AgentExecutor {
             serde_json::Value::Null,
         )
         .await;
-        let tool_calls_with_signatures: Vec<(ToolCallRequest, Option<String>)> =
-            tool_requests.into_iter().zip(tool_call_signatures).collect();
+        let tool_calls_with_signatures: Vec<(ToolCallRequest, Option<String>)> = tool_requests
+            .into_iter()
+            .zip(tool_call_signatures)
+            .collect();
         let outcome = self
             .execute_requested_actions(tool_calls_with_signatures, turn_provider, turn_model)
             .await?;
