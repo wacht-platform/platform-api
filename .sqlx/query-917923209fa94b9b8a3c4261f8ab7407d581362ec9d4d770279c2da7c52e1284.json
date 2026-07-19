@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            id,\n            deployment_id,\n            actor_id,\n            project_id,\n            thread_id,\n            execution_run_id,\n            owner_agent_id,\n            recorded_by_agent_id,\n            memory_scope,\n            content,\n            embedding as \"embedding: Vector\",\n            memory_category,\n            metadata,\n            created_at,\n            updated_at,\n            NULL::double precision as distance\n        FROM agent_memories\n        WHERE deployment_id = $1 AND id = $2\n        LIMIT 1\n        ",
+  "query": "\n            SELECT\n                id,\n                deployment_id,\n                actor_id,\n                project_id,\n                thread_id,\n                execution_run_id,\n                owner_agent_id,\n                recorded_by_agent_id,\n                memory_scope,\n                content,\n                embedding as \"embedding: Vector\",\n                memory_category,\n                metadata,\n                created_at,\n                updated_at,\n                NULL::double precision as distance\n            FROM agent_memories\n            WHERE deployment_id = $1 AND id = $2\n            FOR UPDATE\n            LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -114,5 +114,5 @@
       null
     ]
   },
-  "hash": "9175fc811083bc1c6fb373ff61e45d42ce497e1d5214b734e8a8b562d1ac8fa9"
+  "hash": "917923209fa94b9b8a3c4261f8ab7407d581362ec9d4d770279c2da7c52e1284"
 }
