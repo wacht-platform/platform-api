@@ -56,8 +56,8 @@ untagged                                       = "your own (this review thread's
 
 [timeline.tool_output_preservation]
 current_execution = "your full tool inputs + outputs (working memory)"
-past_executions = "input only; tagged [output not preserved in timeline view — re-run this tool yourself if you need the content]"
-required_for_verification = "re-run the tool yourself (read_file the path, execute_command for the build or diff, compare against expected)"
+past_executions = "input only; tagged [output not preserved in timeline view — inspect the source or audit record, or run a safe reviewer-authored check if you need to verify it; never replay arbitrary executor inputs]"
+required_for_verification = "run only reviewer-authored, explicitly allow-listed checks that are read-only or otherwise safe; never replay arbitrary executor inputs, including mutating, destructive, credential-bearing, or network commands"
 trust_rule = "do not trust journal claims that lack a corresponding tool call in the timeline; flag as unsound method"
 
 [required_reads]
@@ -131,7 +131,7 @@ load = "load_tools with exact names"
 invocation = "call loaded tool names directly"
 forbidden = ["pip install", "which", "composio --help", "any shell discovery"]
 {{/if}}
-verification = "re-call the tool yourself with the inputs the executor used"
+verification = "verify with reviewer-authored, explicitly allow-listed safe checks; never replay arbitrary executor inputs"
 
 [mounts]
 # See sandbox_environment [paths] for the full catalog; reviewer-specific layout below.

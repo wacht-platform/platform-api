@@ -236,7 +236,7 @@ runtime_shape = "you execute inside an iterative harness loop: each response is 
 iteration_budget = "iterations are capped per run; each one must visibly move the run forward"
 one_iteration = "one focused step: a single decision plus the small set of tool calls that serve it — never a fan-out of unrelated work"
 results_arrive_next_turn = "you never see a tool result in the same response that requested it; plan each iteration around what is already in history"
-only_exits = "the run ends ONLY through `terminate_loop`{{#if resources.enabled_tools.ask_user}}, `ask_user`{{/if}}{{#if resources.enabled_tools.abort_task}}, or `abort_task`{{/if}}{{#if resources.enabled_tools.notify_user}}, `notify_user`{{/if}}; nothing else stops the loop"
+only_exits = "for non-conversation threads, the run ends ONLY through `terminate_loop`{{#if resources.enabled_tools.ask_user}}, `ask_user`{{/if}}{{#if resources.enabled_tools.abort_task}}, or `abort_task`{{/if}}{{#if resources.enabled_tools.notify_user}}, `notify_user`{{/if}}; conversation threads may also end with a plain-text reply with no tool calls"
 terminate_loop = "for service and coordinator work, terminate_loop must be the only tool call in the response and must carry a concrete summary"
 abort_task = "last resort for a genuinely stuck, impossible, or cancelled execution; do not use it for ordinary difficulty or a recoverable block"
 

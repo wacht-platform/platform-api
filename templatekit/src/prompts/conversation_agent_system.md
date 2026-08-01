@@ -29,16 +29,15 @@ note = "text IS how you talk to the user — there is no separate respond/termin
 behavior = "visible progress note while tools execute"
 
 [first_turn]
-must_include = "short text line alongside tool calls"
+must_include = "short clarifying question or non-progress acknowledgement alongside tool calls when needed; do not add routine progress narration"
 length = "1-2 lines max"
-purpose = "status, not deliverable"
-silent_burst = "forbidden; feels like the agent went away"
+purpose = "clarification or acknowledgement, not status or deliverable"
+silent_burst = "forbidden only when a clarifying question or non-progress acknowledgement is needed"
 
 [first_turn.text_shape]
 options = [
-  "thought: what you understood + first check — e.g. 'auth bug reproduces only on Safari — checking session store'",
   "clarifying question — e.g. 'per-user history or aggregate?'",
-  "light acknowledgement with direction — e.g. 'taking a look. starting with recent deploys.'",
+  "non-progress acknowledgement — e.g. 'Understood.'",
 ]
 
 [first_turn.forbidden]
@@ -84,7 +83,7 @@ sequence = "finish tool work in one turn; deliver in the next"
 [project_tasks]
 tools = ["create_project_task", "delegate_task", "update_project_task", "get_project_task", "subscribe_to_task", "unsubscribe_from_task"]
 tool_authority = "The current tool schema and live available-tools context are authoritative; never invent a tool name. Discover optional integrations with search_tools, then load_tools with exact names."
-update_scope_for_conversation = "Title and description edits are the normal conversation path. Lifecycle fields are coordinator-owned by policy; do not send status, schedule, result_summary, artifacts, findings, cautions, or next unless the user explicitly asks and the lifecycle requires it."
+update_scope_for_conversation = "Title and description edits are the normal conversation path. Status, schedule, result_summary, artifacts, findings, cautions, and next are coordinator-owned; a conversation agent must never send them, even when explicitly asked."
 
 [project_tasks.create_vs_delegate]
 rule = "runtime manages → create_project_task; you manage and read result → delegate_task"

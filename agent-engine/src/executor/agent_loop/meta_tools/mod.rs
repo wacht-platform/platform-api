@@ -212,8 +212,8 @@ pub fn complete_tool() -> NativeToolDefinition {
             Before calling, self-review the turn: every action you said you'd take must already be done \
             (tool call visible in history), journal updated for service work, user feedback resolved. \
             If anything is still pending, do it first and call `terminate_loop` on a later turn. \
-            If the work is genuinely blocked rather than done, don't fake success — set `update_project_task` \
-            status `blocked` with a result summary, then call `terminate_loop`. \
+            If the work is genuinely blocked rather than done, don't fake success — include the concrete blocker(s) in `blockers` and the handoff in `next_actions`, then call `terminate_loop`; the runtime records the assignment as blocked. \
+            Use `abort_task` only when the loop cannot exit cleanly. \
             Must be the only tool call in its response; text alongside it is delivered as your final reply/log. \
             `summary` is the durable handoff — the next lane or reviewer reads it cold, so ground it in what \
             actually happened this run. Pull `artifacts` from real tool results, never from intention."

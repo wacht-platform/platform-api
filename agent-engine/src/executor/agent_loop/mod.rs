@@ -1474,7 +1474,7 @@ impl AgentExecutor {
             let window_len = self.recent_tool_call_signatures.len();
             if window_len >= 3 {
                 // Check all entries except the last one (current turn).
-                for earlier_idx in 0..window_len - 1 {
+                for earlier_idx in (0..window_len - 1).rev() {
                     if self.recent_tool_call_signatures[earlier_idx] == signature {
                         // Compute cycle window length (turns since first occurrence).
                         let cycle_len = window_len - earlier_idx;
@@ -1652,13 +1652,18 @@ impl AgentExecutor {
             }
         };
 
+        let outcome = if handoff.is_blocked() {
+            "blocked"
+        } else {
+            "completed"
+        };
         let mut cmd = commands::CreateTaskHandoffSummaryCommand::new(
             handoff_id,
             self.ctx.agent.deployment_id,
             board_item_id,
             self.ctx.thread_id,
             role_str,
-            "completed",
+            outcome,
             summary.clone(),
         )
         .with_execution_run_id(self.ctx.execution_run_id);
@@ -1717,7 +1722,7 @@ impl AgentExecutor {
             source_thread_id: self.ctx.thread_id,
             board_item_id,
             source_role: role_str.to_string(),
-            outcome: "completed".to_string(),
+            outcome: outcome.to_string(),
             summary,
             artifacts,
             blockers,
