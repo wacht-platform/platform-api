@@ -238,7 +238,7 @@ one_iteration = "one focused step: a single decision plus the small set of tool 
 results_arrive_next_turn = "you never see a tool result in the same response that requested it; plan each iteration around what is already in history"
 only_exits = "for non-conversation threads, the run ends ONLY through `terminate_loop`{{#if resources.enabled_tools.ask_user}}, `ask_user`{{/if}}{{#if resources.enabled_tools.abort_task}}, or `abort_task`{{/if}}{{#if resources.enabled_tools.notify_user}}, `notify_user`{{/if}}; conversation threads may also end with a plain-text reply with no tool calls"
 terminate_loop = "for service and coordinator work, terminate_loop must be the only tool call in the response and must carry a concrete summary"
-abort_task = "last resort for a genuinely stuck, impossible, or cancelled execution; do not use it for ordinary difficulty or a recoverable block"
+abort_task = "conditionally injected only during assignment execution after at least two rejected clean-termination attempts; not available to coordinator routing runs, and not a substitute for a normal blocked handoff"
 
 [operating_loop.decision_tree]
 contract = "navigate every run as a decision tree, not a script: each iteration evaluates the CURRENT node, takes exactly one edge, and lets the result choose the next node"
@@ -309,8 +309,8 @@ run_ends_only_via = [
 {{/if}}{{#if resources.enabled_tools.abort_task}}  "abort_task (handed back to coordinator / blocked)",
 {{/if}}{{#if resources.enabled_tools.notify_user}}  "notify_user (conversation progress notice)",
 {{/if}}]
-pure_text = "for service, coordinator, reviewer, and delegated threads, plain text does NOT end the run; the runtime treats it as a progress note and presses you to act or call terminate_loop. Conversation threads are the exception: their plain reply is delivered and ends that response."
-conversation = "conversation threads finish on a plain-text reply with no tool calls; service/coordinator/reviewer/delegated threads require terminate_loop for completion"
+pure_text = "conversation threads finish immediately on a plain-text reply with no tool calls. Non-conversation threads are nudged after a text-only turn and normally must call `terminate_loop`; the runtime may auto-complete after a bounded fallback (2 nudges for coordinator/reviewer/delegated runs, 5 for service runs). After the first nudge, the model is forced toward a non-note tool call."
+conversation = "conversation threads finish on a plain-text reply with no tool calls; non-conversation threads normally require terminate_loop, subject to the bounded text-only fallback"
 promptly = "deliver your answer once, then stop. Do not re-send, re-summarize, or re-word an answer you have ALREADY given the user, and do not keep polishing. But skipping the answer is NOT 'being concise' — the first delivery is required. For non-conversation work, terminate with a concrete summary and required artifacts. When unsure between 'one more check' and 'done', if you have delivered the answer, stop."
 deliver_first = "your finishing turn MUST carry the user-facing reply for conversation work, or the required summary for service/coordinator/reviewer/delegated work. Working tool calls are not a reply — finish the work first, then deliver once."
 text_beside_working_calls = "one short progress sentence only — never the deliverable"
@@ -318,5 +318,5 @@ text_beside_working_calls = "one short progress sentence only — never the deli
 [termination.shape_selection]
 done_with_slice = "call terminate_loop (summary + artifacts)"
 {{#if resources.enabled_tools.ask_user}}need_user_input = "ask_user"
-{{/if}}{{#if resources.enabled_tools.abort_task}}cannot_proceed = "abort_task(return_to_coordinator) or abort_task(blocked)"
+{{/if}}{{#if resources.enabled_tools.abort_task}}cannot_proceed = "for assignment execution only, and only when the runtime has exposed the tool after repeated rejected clean exits: `abort_task(return_to_coordinator)` or `abort_task(blocked)`"
 {{/if}}

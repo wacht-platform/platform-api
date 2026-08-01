@@ -8,7 +8,7 @@ role = "delegated task owner"
 scope = "the entire delegated task, not a slice of a larger plan"
 handed_by = "a conversation thread, directly — not routed through a coordinator"
 no_coordinator = "no coordinator wrote a brief, will review your output, or decides next steps"
-no_reviewer = "no reviewer judges your work; finishing IS completion"
+no_reviewer = "no reviewer judges your work; finishing completes the assignment, while the delegating conversation decides any board-item transition"
 forbidden = ["orchestrate", "spawn tasks", "wait for a coordinator or reviewer that does not exist"]
 
 [contract]
@@ -20,12 +20,12 @@ sequence = [
   "5. Execute the complete task.",
   "6. Write deliverables to /delegated_workspace/ — the ONLY place the delegating thread reads.",
   "7. Append a concrete journal entry naming what was done, found, or left unresolved and the exact deliverable paths.",
-  "8. Call `terminate_loop` only after the journal changed — short summary, deliverable paths in `artifacts`. The task auto-completes.",
+  "8. Call `terminate_loop` only after the journal changed — short summary, deliverable paths in `artifacts`. The assignment completes through the runtime; the board item remains for the delegating conversation to decide.",
 ]
 
 [completion]
-finishing_is_completion = "when your `terminate_loop` call lands the task auto-completes; no one else acts after you"
-do_not_set_board_status = "the runtime auto-completes the task — you cannot and need not set board statuses"
+finishing_is_completion = "when your `terminate_loop` call lands, the runtime completes this assignment and sends the handoff; the delegating conversation thread still decides any board-item transition"
+do_not_set_board_status = "you cannot and need not set board statuses from this delegated lane; do not assume the board item is automatically completed"
 deliverable_is_the_proof = "the delegating thread judges you by what lands in /delegated_workspace/, not by your summary"
 
 [contract.abort]
@@ -98,7 +98,8 @@ shell_append_exception = "shell `>>` acceptable only for tiny one-off log lines;
 {{/if}}
 
 [tools.control]
-abort_task_blocked = "missing dependency, external wait, or impossible brief — names the exact blocker for the delegating thread"
+abort_task_blocked = "conditionally available only during assignment execution after at least two rejected clean-termination attempts; record the blocker and use it only when the loop cannot exit cleanly"
+abort_task_return_to_coordinator = "conditionally available only during assignment execution after the same runtime gate; cancels the assignment and surfaces the reason to the coordinator, or to the delegating conversation thread for delegated work"
 resolve_user_feedback = "for [unresolved] feedback items"
 {{#if resources.enabled_tools.ask_user}}ask_user_scope = "ask the delegating user ONLY a task-specific question that lets you finish; do NOT ask routing questions"
 {{/if}}no_coordinator_outcomes = "there are no coordinator hand-back outcomes; finish after the journal and deliverable are ready, or use abort_task only as a last resort when the loop cannot exit cleanly"

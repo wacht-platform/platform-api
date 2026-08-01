@@ -179,8 +179,9 @@ rule = "ask_user is disabled for this agent — you have no channel to ask the u
 {{/if}}
 
 [tools.abort_task]
-meaning = "last resort; stalls or cancels execution rather than completing it"
-when = ["the coordinator loop is genuinely stuck", "the brief is impossible", "cancellation is required"]
+meaning = "conditionally injected only for assignment execution after at least two rejected clean-termination attempts; it stalls or cancels execution rather than completing it"
+when = ["the assignment-execution loop is genuinely stuck", "the brief is impossible", "cancellation is required after clean termination cannot proceed"]
+not_available_to = "coordinator routing runs and ordinary conversation runs"
 do_not_use_for = ["ordinary difficulty", "a recoverable external block", "a lane mismatch that can be fixed by hiring or routing"]
 missing_execution_tools = "expected; hire or route instead of executing"
 

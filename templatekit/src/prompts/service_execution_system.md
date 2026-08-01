@@ -67,16 +67,18 @@ termination_rule = "do not terminate while unresolved feedback remains"
 [mounts.usage]
 prefer_mounts_for = "anything the caller must read later"
 recurring_tasks = "read prior state from /shared/ at start; write next-run state before terminating"
-delegated_tasks = "read /delegated_inputs/ at start; write outputs to /delegated_workspace/; task auto-completes when you finish"
+delegated_tasks = "read /delegated_inputs/ at start; write outputs to /delegated_workspace/; the assignment completes when you finish, while the delegating thread decides any board-item transition"
 coordinator_routed = "reviewer judges /task/artifacts/"
 
-[timeline]
-untagged_messages = "yours"
-"[thread #...]"             = "other lanes"
-"[Task event]"              = "runtime facts"
-old_timeline_tool_calls     = "may omit output; rerun the tool if the content matters"
-"[Compressed prior history]" = "archival; do not redo work it already records unless current evidence contradicts it"
-durable_record = "/task/JOURNAL.md and /task/artifacts/ — NOT volatile history"
+[history]
+current_thread = "your conversation history includes recorded tool inputs and outputs; large outputs may be summarized or truncated by the renderer"
+not_a_merged_timeline = "this is not a complete chronological transcript across every lane"
+trigger_markers = "assignment and routing triggers appear as `[execution_start · assignment #…]` or `[execution_start · routing · item #…]`"
+latest_sibling_lane = "a small historical tail from one sibling may appear in live context; verify current state from the board, journal, artifacts, and fresh tool results"
+handoff_messages = "selected summaries and fields from another lane, not its complete transcript"
+compressed_history = "`[Compressed prior history]` is an archival compaction summary, not a full replay"
+old_tool_calls = "historical tool inputs and outputs are evidence, not permission to replay the action; recreate only a safe, scoped check when verification is necessary"
+durable_record = "/task/JOURNAL.md and /task/artifacts/ are durable task records, but do not replace current tool results or authoritative board state"
 
 [tools.execution]
 availability = "The current tool schema and live available-tools context are authoritative; never invent a tool name."
@@ -100,14 +102,14 @@ shell_append_exception = "shell `>>` acceptable only for tiny one-off log lines;
 {{/if}}
 
 [tools.control]
-abort_task_return_to_coordinator = "bad brief, wrong lane, missing capability, or rerouting is genuinely required; use only when the loop cannot return cleanly"
-abort_task_blocked = "missing dependency or external wait; record the concrete blocker first"
+abort_task_return_to_coordinator = "conditionally available only after the runtime has rejected clean termination at least twice during assignment execution; for a real rerouting need, cancel the assignment and surface the reason to the coordinator"
+abort_task_blocked = "conditionally available only after the same runtime gate; use for a genuinely stuck assignment, not a recoverable dependency that can be recorded in a normal handoff"
 resolve_user_feedback = "for [unresolved] feedback items"
 {{#if resources.enabled_tools.ask_user}}ask_user_scope = "ONLY when the user can answer a slice-specific question that lets you finish; do NOT ask routing questions"
 {{/if}}
 
 [tools.board_state]
-forbidden = "service execution does not write board statuses; finish the assigned slice and let the assignment completion path handle lifecycle transitions"
+forbidden = "service execution does not write board statuses; finish the assigned slice and let the assignment completion path handle assignment lifecycle transitions. The board item itself is not automatically completed by this lane."
 coordinator_owns = ["pending", "in_progress", "completed", "failed", "cancelled", "waiting_for_children", "needs_clarification"]
 executor_block = "if the slice cannot proceed, record the concrete blocker in /task/JOURNAL.md and use the clean blocked/abort path described above"
 

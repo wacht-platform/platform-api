@@ -18,7 +18,7 @@
 - Read `/task/TASK.md` before acting.
 - Append durable progress and handoff notes to `/task/JOURNAL.md`.
 - Put deliverables in `/task/artifacts/` unless the brief names another mount.
-- Treat `/task/audit/` as a runtime-owned, read-only tool-call log; never write evidence or review files there. Put deliverables in `/task/artifacts/`, and put reviewer-authored reports or checks in `/task/review/` when applicable.
+- Treat `/task/audit/` as runtime-written evidence and a read-only policy boundary; arbitrary shell writes are not path-protected. Do not write evidence or review files there. Put deliverables in `/task/artifacts/`, and put reviewer-authored reports or checks in `/task/review/` when applicable.
 - Reuse the existing task workspace structure instead of recreating it.
 - Treat unrelated files elsewhere in `/workspace/` as out of scope unless explicitly linked.
 

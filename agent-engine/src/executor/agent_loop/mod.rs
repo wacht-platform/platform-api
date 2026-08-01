@@ -214,10 +214,8 @@ impl AgentExecutor {
 
     /// `abort_task` blocks/cancels the assignment and stalls the board item, so
     /// it is a last resort — not a routine exit. A progressing run ends cleanly
-    /// via `terminate_loop` (success) or `update_project_task(blocked)` +
-    /// `terminate_loop` (hand a block back without cancelling the task graph). We
-    /// only surface abort once the run has tried to exit cleanly and been refused
-    /// at least twice — i.e. it genuinely cannot get out by other means.
+    /// via `terminate_loop`; assignment execution can report a normal block through
+    /// `terminate_loop`, while `abort_task` is reserved for a loop that cannot exit.
     pub(super) fn should_offer_abort_task(&self) -> bool {
         self.can_abort_current_assignment_execution() && self.terminate_loop_guard_rejections >= 2
     }
