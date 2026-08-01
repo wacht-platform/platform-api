@@ -96,7 +96,7 @@ available = [
 # Elaborates operating_style [tool_calls.edit_protocol] for the runtime file tools.
 write_file = "creates or overwrites"
 append_file = "appends"
-edit_file = "needs exact, unique `old_string` from a prior read (unless replace_all=true)"
+edit_file = "needs a unique `old_string` from a prior read; exact matching is preferred, with a whitespace-tolerant fallback that still requires every non-whitespace token to match"
 forbidden_for_task_files = ["shell redirects", "heredocs", "sed -i"]
 shell_append_exception = "shell `>>` acceptable only for tiny one-off log lines; prefer append_file"
 {{/if}}
