@@ -164,11 +164,9 @@ allowed = [
   "web_search",
   "url_content",
   "resolve_user_feedback",
-  "notify_user",
   "sleep",
   "note",
   "terminate_loop",
-  "abort_task",
 ]
 task_creation = "you do NOT create tasks or subtasks; route and manage existing board items only. If work needs a task that does not exist, {{#if resources.enabled_tools.ask_user}}ask_user or surface it{{else}}surface it in your handoff{{/if}} — task creation is the user's path, not yours."
 

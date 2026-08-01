@@ -87,13 +87,13 @@ pub(crate) fn project_tools() -> Vec<(
     vec![
         (
             "create_project_task",
-            "Create a task on the shared project board (coordinator and user-facing conversation threads). The runtime generates the task key. When a conversation thread creates a task it is auto-routed to the coordinator. Use for durable delegated/background/async work that should continue while this thread stays focused. Write `description` as a direct, sequenced instruction (\"First X. Then Y. Finally Z.\"), not commentary. Optionally nest under `parent_task_key`.",
+            "Create a task on the shared project board from a user-facing conversation thread. The runtime generates the task key. When a conversation thread creates a task it is auto-routed to the coordinator. Use for durable delegated/background/async work that should continue while this thread stays focused. Write `description` as a direct, sequenced instruction (\"First X. Then Y. Finally Z.\"), not commentary. Optionally nest under `parent_task_key`.",
             InternalToolType::CreateProjectTask,
             create_project_task_schema(),
         ),
         (
             "update_project_task",
-            "Update an existing board task by key. Coordinator/execution lanes use it for status, schedule, terminal transitions. Conversation threads only touch `title`/`description` (revise the brief; never change status — cancel/complete are coordinator decisions); editing either preempts any running execution and re-routes the coordinator with the new instructions. Write `description` as a direct, sequenced instruction. Omit unchanged fields.",
+            "Update an existing board task by key. Coordinator threads use it for status, schedule, and terminal transitions. Conversation threads only touch `title`/`description` (revise the brief; never change status — cancel/complete are coordinator decisions); editing either preempts any running execution and re-routes the coordinator with the new instructions. Write `description` as a direct, sequenced instruction. Omit unchanged fields.",
             InternalToolType::UpdateProjectTask,
             update_project_task_schema(),
         ),
@@ -111,7 +111,7 @@ pub(crate) fn project_tools() -> Vec<(
         ),
         (
             "create_thread",
-            "Create a durable execution lane in the current project. Coordinator-only. `assigned_agent_name` is REQUIRED (no default) — almost always a specialist from `available_sub_agents` whose responsibility matches the lane; pick yourself only for genuinely coordinator-owned execution (rare — coordinators delegate, not execute). Per-task delegation happens via project-task assignments after the lane exists.",
+            "Create a durable execution lane in the current project. Coordinator or eligible conversation-thread agents may use this tool; conversation callers must be the project's coordinator agent or one of its configured sub-agents. `assigned_agent_name` is REQUIRED (no default) — almost always a specialist from `available_sub_agents` whose responsibility matches the lane; pick yourself only for genuinely coordinator-owned execution (rare — coordinators delegate, not execute). Per-task delegation happens via project-task assignments after the lane exists.",
             InternalToolType::CreateThread,
             create_thread_schema(),
         ),

@@ -46,6 +46,8 @@ impl AgentExecutor {
                         json!("pending"),
                         json!("blocked"),
                         json!("completed"),
+                        json!("cancelled"),
+                        json!("waiting_for_children"),
                         json!("failed"),
                     ]);
                     status_field.description = Some(

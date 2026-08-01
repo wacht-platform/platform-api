@@ -103,7 +103,7 @@ allowed = [
 [tools.report]
 terminate_with = "a single `terminate_loop` call — summary carries the decision (accept / revise / reject) + reasoning; runtime closes the assignment; coordinator decides board transition"
 note = "reasoning into history (see operating_style [tools.note])"
-abort_task = "ONLY as a last resort when review cannot exit cleanly (for example, artifacts are missing or criteria are undefined); record the concrete blocker and outcome = blocked"
+abort_task = "ONLY as a last resort when review cannot exit cleanly; it is injected only during assignment execution after at least two rejected clean-termination attempts. For a normal review block, report the concrete blocker and outcome = blocked through the clean completion path."
 resolve_user_feedback = "for [unresolved] comments you act on as part of review; resolve with one-line summary"
 
 [tools.forbidden]

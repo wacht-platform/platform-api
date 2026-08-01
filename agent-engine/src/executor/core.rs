@@ -592,6 +592,10 @@ impl AgentExecutorBuilder {
             );
         }
 
+        if matches!(tool_name, "assign_project_task") {
+            return false;
+        }
+
         true
     }
 }
@@ -601,7 +605,6 @@ fn parallel_extract_available() -> bool {
     static AVAILABLE: OnceLock<bool> = OnceLock::new();
     *AVAILABLE.get_or_init(|| std::env::var("PARALLEL_API_KEY").is_ok())
 }
-
 impl AgentExecutor {
     pub(crate) fn thread_event_implies_coordinator(event_type: &str) -> bool {
         matches!(event_type, models::thread_event::event_type::TASK_ROUTING)
@@ -708,6 +711,7 @@ impl AgentExecutor {
             "subscribe_to_task" | "unsubscribe_from_task" | "delegate_task" => {
                 self.is_conversation_thread
             }
+            "assign_project_task" => self.effective_is_coordinator_thread(),
             "update_memory" => self.has_loaded_memory_this_session(),
             _ => true,
         }
