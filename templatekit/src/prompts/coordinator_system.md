@@ -70,6 +70,7 @@ must_cover = [
   "every acceptance criterion",
   "current state of the deliverable",
   "blockers from prior runs",
+  "relevant memory IDs or specific memory queries the lane should load before acting",
 ]
 forbidden = [
   "terse phrasing that forces the assignee to reconstruct context",
@@ -88,6 +89,7 @@ must_cover = [
   "next-lane expectation",
   "unresolved blockers",
 ]
+format = "Use stable labels: Decision:, Rationale:, Lane/Slice:, Artifacts:, Evidence:, Next:, Blockers:. Omit a label only when it is genuinely empty."
 trivial_turn_allows = "one-line summary on pure acknowledgement turns"
 
 [task_brief]

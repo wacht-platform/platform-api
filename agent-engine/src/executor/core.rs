@@ -19,16 +19,51 @@ pub enum ResumeContext {
 /// Wording, key, and log severity live here — call sites only pick a variant.
 #[derive(Debug, Clone)]
 pub(crate) enum RuntimeSignal {
-    NoteLoop { count: usize },
+    NoteLoop {
+        count: usize,
+    },
     EmptyResponse,
     ResponseTruncated,
-    ShellDiscipline { message: String },
-    ShellDisciplineEscalated { count: usize },
-    ToolCallLoop { count: usize },
-    BatchBackpressure { batch_size: usize },
+    ShellDiscipline {
+        message: String,
+    },
+    ShellDisciplineEscalated {
+        count: usize,
+    },
+    ToolCallLoop {
+        count: usize,
+    },
+    /// Transient signal emitted when the same tool-call signature recurs within
+    /// the bounded recent-turn window without being adjacent.
+    ToolCallCycle {
+        cycle_len: usize,
+    },
+    /// Transient signal emitted when the LLM invokes a tool name absent from the
+    /// current turn's allowed set. Cleared after one prompt render (transient by
+    /// discriminant dedup).
+    UnknownToolCall {
+        tool_name: String,
+    },
+    /// Sustained escalation emitted each turn while tool-failure or
+    /// unproductive-turn counters remain elevated. Re-emitted every iteration so
+    /// the signal persists until the condition resolves or the loop aborts.
+    /// Role-aware: carries `ask_user_available` so the message can guide the
+    /// model toward the right recovery path.
+    ToolFailureEscalation {
+        ask_user_available: bool,
+        failure_count: usize,
+        unproductive_count: usize,
+    },
+    BatchBackpressure {
+        batch_size: usize,
+    },
     CompleteRequired,
-    CompleteBlocked { reason: String },
-    AskUserBlocked { reason: String },
+    CompleteBlocked {
+        reason: String,
+    },
+    AskUserBlocked {
+        reason: String,
+    },
     UserVisibilityLapse,
     CoordinatorBriefMissing,
     StateIntent,
@@ -45,6 +80,9 @@ impl RuntimeSignal {
                 "shell_discipline"
             }
             Self::ToolCallLoop { .. } => "tool_call_loop",
+            Self::ToolCallCycle { .. } => "tool_call_cycle",
+            Self::UnknownToolCall { .. } => "unknown_tool_call",
+            Self::ToolFailureEscalation { .. } => "tool_failure_escalation",
             Self::BatchBackpressure { .. } => "batch_backpressure",
             Self::CompleteRequired => "complete_required",
             Self::CompleteBlocked { .. } => "complete_blocked",
@@ -70,6 +108,23 @@ impl RuntimeSignal {
             Self::ToolCallLoop { count } => format!(
                 "identical tool call repeated {count} turns in a row; the result will not change — change inputs, change tool, or report blocked"
             ),
+            Self::ToolCallCycle { cycle_len } => format!(
+                "the same tool-call signature recurred after {cycle_len} turns; change inputs, change tool, or report blocked"
+            ),
+            Self::UnknownToolCall { tool_name } => format!(
+                "tool '{tool_name}' is not in this turn's allowed set; pick a tool from the available list by exact name, or respond with text if none fit"
+            ),
+            Self::ToolFailureEscalation { ask_user_available, failure_count, unproductive_count } => {
+                if *ask_user_available {
+                    format!(
+                        "{failure_count} consecutive tool failures and {unproductive_count} unproductive turns — stop retrying the same approach. Either ask the user for clarification via `ask_user`, change strategy completely, or call `terminate_loop` with a status report"
+                    )
+                } else {
+                    format!(
+                        "{failure_count} consecutive tool failures and {unproductive_count} unproductive turns — stop retrying the same approach. Change strategy completely, or call `terminate_loop` to report the blocker"
+                    )
+                }
+            },
             Self::BatchBackpressure { batch_size } => format!(
                 "{batch_size} tool calls in one turn; read those results and let them choose the next narrow step before fanning out further"
             ),
@@ -90,6 +145,9 @@ impl RuntimeSignal {
                 | Self::EmptyResponse
                 | Self::ResponseTruncated
                 | Self::ToolCallLoop { .. }
+                | Self::ToolCallCycle { .. }
+                | Self::UnknownToolCall { .. }
+                | Self::ToolFailureEscalation { .. }
                 | Self::CompleteBlocked { .. }
                 | Self::LlmRequestFailed
         )
@@ -153,6 +211,10 @@ pub struct AgentExecutor {
     pub(crate) complete_nudge_count: usize,
     pub(crate) terminate_loop_guard_rejections: usize,
     pub(crate) pending_runtime_signals: Vec<RuntimeSignal>,
+    /// Bounded window of recent tool-call signatures for non-adjacent cycle
+    /// detection. Only the most recent N entries are kept; each signature is a
+    /// sorted concatenation of `name:args` for the turn's non-meta tool calls.
+    pub(crate) recent_tool_call_signatures: std::collections::VecDeque<String>,
     pub(crate) audit_run_header_written: bool,
     pub(crate) preloaded_immediate_context: Option<ImmediateContext>,
     pub(crate) budget: super::budget::BudgetCounter,
@@ -476,6 +538,7 @@ impl AgentExecutorBuilder {
             complete_nudge_count: 0,
             terminate_loop_guard_rejections: 0,
             pending_runtime_signals: Vec::new(),
+            recent_tool_call_signatures: std::collections::VecDeque::new(),
             audit_run_header_written: false,
             preloaded_immediate_context: Some(immediate_context),
             budget: super::budget::BudgetCounter::new(run_token_budget),

@@ -15,11 +15,12 @@ forbidden = ["orchestrate", "spawn tasks", "wait for a coordinator or reviewer t
 sequence = [
   "1. Read /task/TASK.md — your full brief and acceptance contract.",
   "2. Read /task/JOURNAL.md for any prior state on this task.",
-  "3. Read /delegated_inputs/ for any read-only inputs the delegating thread mounted.",
-  "4. Execute the complete task.",
-  "5. Write deliverables to /delegated_workspace/ — the ONLY place the delegating thread reads.",
-  "6. Append a concrete journal entry naming what was done, found, or left unresolved and the exact deliverable paths.",
-  "7. Call `terminate_loop` only after the journal changed — short summary, deliverable paths in `artifacts`. The task auto-completes.",
+  "3. Load memory with specific task terms before making a non-trivial decision or state change.",
+  "4. Read /delegated_inputs/ for any read-only inputs the delegating thread mounted.",
+  "5. Execute the complete task.",
+  "6. Write deliverables to /delegated_workspace/ — the ONLY place the delegating thread reads.",
+  "7. Append a concrete journal entry naming what was done, found, or left unresolved and the exact deliverable paths.",
+  "8. Call `terminate_loop` only after the journal changed — short summary, deliverable paths in `artifacts`. The task auto-completes.",
 ]
 
 [completion]

@@ -11,11 +11,12 @@ forbidden = ["orchestrate", "spawn tasks", "update board status", "silently do a
 sequence = [
   "1. Read /task/JOURNAL.md.",
   "2. Read /task/TASK.md.",
-  "3. Read assignment context and any unresolved feedback.",
-  "4. Execute only the scoped responsibility.",
-  "5. Write deliverables under /task/artifacts/ unless the brief specifies another mount.",
-  "6. Append a concrete journal entry describing what was done, found, or left unresolved.",
-  "7. Call `terminate_loop` only after the journal changed, with a short summary and deliverable paths in `artifacts`.",
+  "3. Load memory with specific task terms before any non-trivial decision or state change.",
+  "4. Read assignment context and any unresolved feedback.",
+  "5. Execute only the scoped responsibility.",
+  "6. Write deliverables under /task/artifacts/ unless the brief specifies another mount.",
+  "7. Append a concrete journal entry describing what was done, found, or left unresolved.",
+  "8. Call `terminate_loop` only after the journal changed, with a short summary and deliverable paths in `artifacts`.",
 ]
 
 [contract.abort]

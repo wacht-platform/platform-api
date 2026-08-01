@@ -942,6 +942,28 @@ impl AgentExecutor {
             return Ok(false);
         }
 
+        // Soft escalation: emit each turn while tool-failure or unproductive-turn
+        // counters remain elevated. This fires BEFORE the hard abort at
+        // MAX_UNPRODUCTIVE_TURNS, giving the model a chance to self-correct.
+        // Role-aware: checks whether `ask_user` is available so the message can
+        // steer the model toward the right recovery path.
+        if self.consecutive_tool_failure_count >= 2
+            || (self.consecutive_unproductive_turns >= 2
+                && self.consecutive_unproductive_turns < MAX_UNPRODUCTIVE_TURNS)
+        {
+            let ask_user_available = !self
+                .ctx
+                .agent
+                .disabled_internal_tools
+                .iter()
+                .any(|t| t == "ask_user");
+            self.signal(core::RuntimeSignal::ToolFailureEscalation {
+                ask_user_available,
+                failure_count: self.consecutive_tool_failure_count,
+                unproductive_count: self.consecutive_unproductive_turns,
+            });
+        }
+
         if self.consecutive_unproductive_turns >= MAX_UNPRODUCTIVE_TURNS {
             if self.can_abort_current_assignment_execution() {
                 self.abort_current_assignment_execution(&AbortDirective {
@@ -1364,6 +1386,12 @@ impl AgentExecutor {
                         ),
                     )
                     .await?;
+                    // Transient signal: surfaces in the next prompt's
+                    // [runtime_signals] block once, then is cleared by
+                    // discriminant dedup on the next signal or by drain.
+                    self.signal(core::RuntimeSignal::UnknownToolCall {
+                        tool_name: call.tool_name.clone(),
+                    });
                     continue;
                 }
             };
@@ -1414,6 +1442,8 @@ impl AgentExecutor {
         }
 
         let signature = Self::tool_call_signature(&tool_requests);
+
+        // --- Adjacent-match: same signature as the immediately previous turn ---
         if self
             .last_tool_call_signature
             .as_deref()
@@ -1424,8 +1454,38 @@ impl AgentExecutor {
         } else {
             self.repeated_tool_call_count = 0;
         }
-        self.last_tool_call_signature = Some(signature);
+        self.last_tool_call_signature = Some(signature.clone());
 
+        // --- Non-adjacent cycle detection: bounded window of recent signatures ---
+        // Push the current signature into the bounded window. Then scan the window
+        // (excluding the most-recent entry, which is the adjacent case above) for
+        // any earlier occurrence of the same signature. This catches alternating
+        // patterns like A→B→A→B or A→B→C→A without firing when the agent is
+        // making genuine progress (different arguments ⇒ different signature).
+        const TOOL_CALL_CYCLE_WINDOW: usize = 6;
+        self.recent_tool_call_signatures
+            .push_back(signature.clone());
+        while self.recent_tool_call_signatures.len() > TOOL_CALL_CYCLE_WINDOW {
+            self.recent_tool_call_signatures.pop_front();
+        }
+        if self.repeated_tool_call_count < 2 {
+            // The adjacent case already fires at count >= 2; only scan the wider
+            // window when the adjacent check did NOT trigger.
+            let window_len = self.recent_tool_call_signatures.len();
+            if window_len >= 3 {
+                // Check all entries except the last one (current turn).
+                for earlier_idx in 0..window_len - 1 {
+                    if self.recent_tool_call_signatures[earlier_idx] == signature {
+                        // Compute cycle window length (turns since first occurrence).
+                        let cycle_len = window_len - earlier_idx;
+                        self.signal(core::RuntimeSignal::ToolCallCycle { cycle_len });
+                        break;
+                    }
+                }
+            }
+        }
+
+        // --- Adjacent-match sustained signal (unchanged) ---
         if self.repeated_tool_call_count >= 2 {
             self.signal(core::RuntimeSignal::ToolCallLoop {
                 count: self.repeated_tool_call_count + 1,
