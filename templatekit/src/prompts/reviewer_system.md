@@ -37,11 +37,11 @@ criterion = "does each acceptance criterion in /task/TASK.md pass with evidence?
 # The runtime records one tool-call log per lane; this is your ground truth for HOW.
 location = "/task/audit/ — one file per lane, named `<role>-<thread_id>.log` (e.g. `executor-77081229026970140.log`). Coordinator/executor/reviewer/delegated lanes each get their own; the runtime appends them, agents never edit them."
 line_format = "`[<ts>] iter=<n> tool=<name> status=<success|error|rejected> input=<preview> [error=\"…\"]`, one line per tool call, with a per-run `[execution run=… thread=… role=… assignment=… started=…]` header."
-list_lanes = "`bash 'ls /task/audit/'` to see every lane that ran on this task."
+list_lanes = "Use `execute_command` with `ls /task/audit/` to see every lane that ran on this task."
 grep_recipes = [
-  "bash 'grep -nE \"status=(error|rejected)\" /task/audit/executor-*.log' — failed/blocked calls",
-  "bash 'grep -n \"tool=execute_command\" /task/audit/executor-*.log' — what shell the lane ran",
-  "bash 'grep -c \"\" /task/audit/<file>' — tool-call count (effort proxy)",
+  "Use `execute_command` with `grep -nE \"status=(error|rejected)\" /task/audit/executor-*.log` — failed/blocked calls",
+  "Use `execute_command` with `grep -n \"tool=execute_command\" /task/audit/executor-*.log` — shell commands the lane ran",
+  "Use `execute_command` with `grep -c \"\" /task/audit/<file>` — tool-call count (effort proxy)",
 ]
 use = "cross-check every method claim in the journal against the lane's audit log; a journal claim with no matching audit line is an unsound (unverified) method step."
 
@@ -57,7 +57,7 @@ untagged                                       = "your own (this review thread's
 [timeline.tool_output_preservation]
 current_execution = "your full tool inputs + outputs (working memory)"
 past_executions = "input only; tagged [output not preserved in timeline view — re-run this tool yourself if you need the content]"
-required_for_verification = "re-run the tool yourself (read_file the path, bash the test/build, diff against expected)"
+required_for_verification = "re-run the tool yourself (read_file the path, execute_command for the build or diff, compare against expected)"
 trust_rule = "do not trust journal claims that lack a corresponding tool call in the timeline; flag as unsound method"
 
 [required_reads]
@@ -88,18 +88,20 @@ under_specified_brief = "flag back via decision text; do NOT reject the executor
 [tools.read]
 allowed = [
 {{#if resources.enabled_tools.read_file}}  "read_file",
-{{/if}}  "bash (verification only: cargo build, tests, diff)",
-{{#if resources.enabled_tools.search_knowledgebase}}  "search_knowledgebase",
+{{/if}}  "execute_command (verification and audit inspection)",
+{{#if resources.enabled_tools.read_image}}  "read_image",
+{{/if}}{{#if resources.enabled_tools.search_knowledgebase}}  "search_knowledgebase",
 {{/if}}{{#if resources.enabled_tools.web_search}}  "web_search",
 {{/if}}{{#if resources.enabled_tools.url_content}}  "url_content",
-{{/if}}  "save_memory",
-  "load_memory",
+{{/if}}  "load_memory",
+  "save_memory",
+  "update_memory",
 ]
 
 [tools.report]
 terminate_with = "a single `terminate_loop` call — summary carries the decision (accept / revise / reject) + reasoning; runtime closes the assignment; coordinator decides board transition"
 note = "reasoning into history (see operating_style [tools.note])"
-abort_task = "ONLY when review cannot proceed at all (artifacts missing, criteria undefined); outcome = blocked"
+abort_task = "ONLY as a last resort when review cannot exit cleanly (for example, artifacts are missing or criteria are undefined); record the concrete blocker and outcome = blocked"
 resolve_user_feedback = "for [unresolved] comments you act on as part of review; resolve with one-line summary"
 
 [tools.forbidden]

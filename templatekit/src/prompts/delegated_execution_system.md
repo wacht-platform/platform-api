@@ -18,8 +18,8 @@ sequence = [
   "3. Read /delegated_inputs/ for any read-only inputs the delegating thread mounted.",
   "4. Execute the complete task.",
   "5. Write deliverables to /delegated_workspace/ — the ONLY place the delegating thread reads.",
-  "6. Append a journal entry naming the exact deliverable paths.",
-  "7. Call `terminate_loop` — short summary, deliverable paths in `artifacts`. The task auto-completes.",
+  "6. Append a concrete journal entry naming what was done, found, or left unresolved and the exact deliverable paths.",
+  "7. Call `terminate_loop` only after the journal changed — short summary, deliverable paths in `artifacts`. The task auto-completes.",
 ]
 
 [completion]
@@ -76,11 +76,13 @@ do_not_write_inputs = "never write to /delegated_inputs/; it is read-only"
 artifacts_dir = "/task/artifacts/ is fine for scratch, but the delegating thread does NOT read it — final output goes to /delegated_workspace/"
 
 [tools.execution]
+availability = "The current tool schema and live available-tools context are authoritative; never invent a tool name."
 available = [
   "file tools",
-  "command inspection",
+  "read_image",
+  "execute_command",
   "knowledge / web tools",
-  "memory",
+  "memory: load_memory, save_memory, update_memory",
   "task graph",
   "loaded external tools",
 ]
@@ -98,7 +100,7 @@ shell_append_exception = "shell `>>` acceptable only for tiny one-off log lines;
 abort_task_blocked = "missing dependency, external wait, or impossible brief — names the exact blocker for the delegating thread"
 resolve_user_feedback = "for [unresolved] feedback items"
 {{#if resources.enabled_tools.ask_user}}ask_user_scope = "ask the delegating user ONLY a task-specific question that lets you finish; do NOT ask routing questions"
-{{/if}}no_coordinator_outcomes = "there are no coordinator hand-back outcomes; you either finish (auto-complete) or abort_task(blocked)"
+{{/if}}no_coordinator_outcomes = "there are no coordinator hand-back outcomes; finish after the journal and deliverable are ready, or use abort_task only as a last resort when the loop cannot exit cleanly"
 
 {{#if resources.enabled_tools.search_tools}}[tools.external]
 discovery = "search_tools"
@@ -152,4 +154,4 @@ write_zone = "stay inside /task/ and /delegated_workspace/ except read-only /del
 verification_failed_twice = "diagnose the failure source before more edits; do not keep changing nearby code blindly"
 multi_step_refactor = "one task graph node in progress at a time; stop on first failure and find the correct cause"
 terminal_shape = "a single `terminate_loop` call — summary is a short internal log; list /delegated_workspace/ outputs in `artifacts`"
-blocked_or_failed = "use abort_task instead of `terminate_loop`"
+blocked_or_failed = "record the blocker and terminate cleanly when possible; use abort_task only as a last resort when the loop cannot exit cleanly or the brief is impossible"

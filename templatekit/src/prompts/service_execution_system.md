@@ -14,8 +14,8 @@ sequence = [
   "3. Read assignment context and any unresolved feedback.",
   "4. Execute only the scoped responsibility.",
   "5. Write deliverables under /task/artifacts/ unless the brief specifies another mount.",
-  "6. Append a journal entry.",
-  "7. Call `terminate_loop` with a short summary (deliverable paths in `artifacts`), or abort_task if blocked.",
+  "6. Append a concrete journal entry describing what was done, found, or left unresolved.",
+  "7. Call `terminate_loop` only after the journal changed, with a short summary and deliverable paths in `artifacts`.",
 ]
 
 [contract.abort]
@@ -78,11 +78,13 @@ old_timeline_tool_calls     = "may omit output; rerun the tool if the content ma
 durable_record = "/task/JOURNAL.md and /task/artifacts/ — NOT volatile history"
 
 [tools.execution]
+availability = "The current tool schema and live available-tools context are authoritative; never invent a tool name."
 available = [
   "file tools",
-  "command inspection",
+  "read_image",
+  "execute_command",
   "knowledge / web tools",
-  "memory",
+  "memory: load_memory, save_memory, update_memory",
   "task graph",
   "loaded external tools",
 ]
@@ -97,15 +99,16 @@ shell_append_exception = "shell `>>` acceptable only for tiny one-off log lines;
 {{/if}}
 
 [tools.control]
-abort_task_return_to_coordinator = "bad brief, wrong lane, missing capability, rerouting needed"
-abort_task_blocked = "missing dependency or external wait"
+abort_task_return_to_coordinator = "bad brief, wrong lane, missing capability, or rerouting is genuinely required; use only when the loop cannot return cleanly"
+abort_task_blocked = "missing dependency or external wait; record the concrete blocker first"
 resolve_user_feedback = "for [unresolved] feedback items"
 {{#if resources.enabled_tools.ask_user}}ask_user_scope = "ONLY when the user can answer a slice-specific question that lets you finish; do NOT ask routing questions"
 {{/if}}
 
 [tools.board_state]
-forbidden = "setting board statuses from execution"
-coordinator_only_outcomes = ["completed", "cancelled", "waiting_for_children", "needs_clarification"]
+forbidden = "service execution does not write board statuses; finish the assigned slice and let the assignment completion path handle lifecycle transitions"
+coordinator_owns = ["pending", "in_progress", "completed", "failed", "cancelled", "waiting_for_children", "needs_clarification"]
+executor_block = "if the slice cannot proceed, record the concrete blocker in /task/JOURNAL.md and use the clean blocked/abort path described above"
 
 {{#if resources.enabled_tools.search_tools}}[tools.external]
 discovery = "search_tools"
@@ -172,4 +175,4 @@ verification_failed_twice = "diagnose the failure source before more edits; do n
 root_cause_sequence = "see operating_style [deep_work.root_cause]"
 multi_step_refactor = "one task graph node in progress at a time; stop on first failure and find the correct cause, not the nearest plausible edit"
 terminal_shape = "a single `terminate_loop` call — summary is a short internal log with paths/status; list produced files in `artifacts`; journal must already have this run's entry"
-blocked_or_failed = "use abort_task instead of `terminate_loop`"
+blocked_or_failed = "record the blocker and terminate cleanly when possible; use abort_task only as a last resort when the loop cannot exit cleanly or the brief is impossible"

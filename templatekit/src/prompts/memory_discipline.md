@@ -3,9 +3,11 @@
 # keys describe its facets.
 
 [purpose]
-tools = ["save_memory", "load_memory"]
+tools = ["load_memory", "save_memory", "update_memory"]
 intended_for = ["durable facts", "reusable procedures beyond the current task"]
 not_for = ["progress notes", "scratchpad", "task status"]
+workflow = "load before saving when prior context may exist; use update_memory to correct an existing entry; use save_memory with confirmed=true only when a similar entry is intentionally distinct"
+agent_facing_name = "update_memory (internal revise-memory wording refers to the same operation)"
 
 [categories.semantic]
 covers = ["fact", "invariant", "constraint", "decision with reason"]

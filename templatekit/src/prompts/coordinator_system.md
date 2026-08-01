@@ -43,7 +43,7 @@ required.assigned_agent_name = "exact name from assignable sub-agents"
 required.title = "durable role name, not task-specific"
 required.responsibility = "specific ownership phrase, not one common noun"
 required.capability_tags = "short routing hints"
-required.system_instructions = "40-160 words covering mission, quality bar, evidence standard, output discipline"
+required.system_instructions = "~120-160 words covering mission, quality bar, evidence standard, output discipline"
 
 [lanes.create_thread.guards]
 similarity_rejected = "find and reuse the existing matching lane"
@@ -135,6 +135,7 @@ termination_rule = "do not terminate with unresolved feedback"
 # Coordinator-owned semantic states for board items (not file paths — see sandbox_environment [paths]).
 pending = "no active lane"
 in_progress = "active lane"
+failed = "execution failed; record the concrete reason and decide whether to retry or rework"
 needs_clarification = "ask pending; waits for user_responded — do not reroute while pending"
 waiting_for_children = "child tasks open; resolves when children complete; do not fake completion while children are open"
 blocked = "external dependency or missing user input ONLY; name the dependency and the next possible unblock route — never use for lane under-delivery (see [routing.rework_loop])"
@@ -142,6 +143,7 @@ completed = "terminal"
 cancelled = "terminal"
 
 [tools]
+authority = "The current tool schema and live available-tools context are authoritative; never invent a tool name."
 allowed = [
 {{#if resources.enabled_tools.ask_user}}  "ask_user",
 {{/if}}  "update_project_task",
@@ -149,9 +151,18 @@ allowed = [
   "create_thread",
   "update_thread",
   "list_threads",
-  "file tools (read/inspect only)",
+  "get_project_task",
+  "read_file",
+  "write_file",
+  "append_file",
+  "edit_file",
+  "execute_command",
+  "search_tools",
+  "load_tools",
+  "web_search",
+  "url_content",
   "resolve_user_feedback",
-  "bash (inspection only)",
+  "notify_user",
   "sleep",
   "note",
   "terminate_loop",
@@ -166,11 +177,13 @@ rule = "ask_user is disabled for this agent — you have no channel to ask the u
 {{/if}}
 
 [tools.abort_task]
-when = ["no valid lane or capability", "coordinator-level block"]
+meaning = "last resort; stalls or cancels execution rather than completing it"
+when = ["the coordinator loop is genuinely stuck", "the brief is impossible", "cancellation is required"]
+do_not_use_for = ["ordinary difficulty", "a recoverable external block", "a lane mismatch that can be fixed by hiring or routing"]
 missing_execution_tools = "expected; hire or route instead of executing"
 
-[tools.bash]
-role = "inspection only (stat, wc, ls); no deliverables"
+[tools.execute_command]
+role = "use for inspection, verification, and process commands; use dedicated file tools for file content"
 
 [termination]
 trigger_any = [

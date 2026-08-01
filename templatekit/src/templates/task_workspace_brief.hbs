@@ -15,22 +15,24 @@
 - Keep the work product durable inside this task workspace.
 
 ## How To Work
-- Put handoffs in `/task/handoffs/`.
-- Put durable artifacts in `/task/artifacts/`.
-- Put working notes in `/task/notes/`.
+- Read `/task/TASK.md` before acting.
+- Append durable progress and handoff notes to `/task/JOURNAL.md`.
+- Put deliverables in `/task/artifacts/` unless the brief names another mount.
+- Use `/task/audit/` and `/task/review/` for evidence or review material when appropriate.
 - Reuse the existing task workspace structure instead of recreating it.
 - Treat unrelated files elsewhere in `/workspace/` as out of scope unless explicitly linked.
 
 ## Deliverables
-- Leave a durable handoff file when you finish a task stage.
-- Make sure the handoff explains what changed, what remains, and the key file paths.
+- Leave the concrete deliverable at the path the caller will read.
+- Before terminating, append one concrete journal entry describing what was done, found, or left unresolved.
+- Make the journal entry name exact artifact paths, result, remaining follow-up, and important gaps.
 
 ## Done Means
 - The requested work is actually completed, not merely explored.
 - Important constraints and gaps are called out explicitly.
+- Service-mode completion is rejected if `/task/JOURNAL.md` was not updated during this run.
 - The next agent can continue from the workspace without re-deriving context.
 
 ## Output Boundary
-- Final state must be backed by a durable handoff or artifact path.
-- Handoffs must name concrete files, result, remaining follow-up, and important gaps.
+- Final state must be backed by a durable artifact path and the current journal entry.
 - Vague completion claims are not acceptable without durable evidence.

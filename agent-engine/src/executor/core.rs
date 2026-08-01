@@ -32,6 +32,7 @@ pub(crate) enum RuntimeSignal {
     UserVisibilityLapse,
     CoordinatorBriefMissing,
     StateIntent,
+    LlmRequestFailed,
 }
 
 impl RuntimeSignal {
@@ -51,6 +52,7 @@ impl RuntimeSignal {
             Self::UserVisibilityLapse => "user_visibility",
             Self::CoordinatorBriefMissing => "coordinator_brief_missing",
             Self::StateIntent => "state_intent",
+            Self::LlmRequestFailed => "llm_request_failed",
         }
     }
 
@@ -77,6 +79,7 @@ impl RuntimeSignal {
             Self::UserVisibilityLapse => "no user-visible message in the last 4 visible steps; add one short progress line beside the next tool call unless it is a tiny read".to_string(),
             Self::CoordinatorBriefMissing => "the task brief `/task/TASK.md` isn't ready yet — write a complete brief there (objective, scope, acceptance criteria) before routing work to a lane, so the executor has one to read".to_string(),
             Self::StateIntent => "a new user message just arrived — call `note` once stating your intent: one or two sentences covering any work you were mid-way through (so it survives the interruption) and what you will do next for this message, then proceed (you may batch it with your first real step)".to_string(),
+            Self::LlmRequestFailed => "the previous model request failed before producing output; emit a simpler, shorter response this turn — fewer tool calls, narrower scope, or split the work into smaller steps".to_string(),
         }
     }
 
@@ -88,6 +91,7 @@ impl RuntimeSignal {
                 | Self::ResponseTruncated
                 | Self::ToolCallLoop { .. }
                 | Self::CompleteBlocked { .. }
+                | Self::LlmRequestFailed
         )
     }
 

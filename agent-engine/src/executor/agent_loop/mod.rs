@@ -1017,9 +1017,16 @@ impl AgentExecutor {
             serde_json::Value::Null,
         )
         .await;
-        let mut output = llm
+        let mut output = match llm
             .generate_tool_calls(request, native_tools, cache_request)
-            .await?;
+            .await
+        {
+            Ok(output) => output,
+            Err(error) => {
+                self.signal(crate::executor::core::RuntimeSignal::LlmRequestFailed);
+                return Err(error);
+            }
+        };
         self.run_hooks(
             super::hooks::LifecyclePhase::AfterLlm,
             serde_json::Value::Null,
