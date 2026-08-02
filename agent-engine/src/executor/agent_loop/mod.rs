@@ -1507,7 +1507,9 @@ impl AgentExecutor {
         let outcome = self
             .execute_requested_actions(tool_calls_with_signatures, turn_provider, turn_model)
             .await?;
-        self.reset_unproductive_turns();
+        if !outcome.had_failure {
+            self.reset_unproductive_turns();
+        }
         if batch_size >= LARGE_TOOL_BATCH {
             self.signal(core::RuntimeSignal::BatchBackpressure { batch_size });
         }

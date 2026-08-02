@@ -96,8 +96,9 @@ note = "live state, refreshed every turn — resolve each [unresolved] item with
 {{/if}}
 {{#if discoverable_external_tool_names}}
 [external_tools]
-available = "{{join discoverable_external_tool_names ", "}}"
+discoverable = "{{join discoverable_external_tool_names ", "}}"
 loaded = "{{#if loaded_external_tool_names}}{{join loaded_external_tool_names ", "}}{{else}}none{{/if}}"
+callable = "only the loaded external tools are callable; use `load_tools` for a discoverable name before invoking it"
 
 {{/if}}
 {{#if resources.available_knowledge_bases}}

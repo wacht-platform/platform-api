@@ -1,5 +1,5 @@
 use super::{AgentFilesystem, EditFileResult, ReadFileResult, WriteFileResult};
-use crate::sandbox::{ExecRequest, SandboxError};
+use crate::sandbox::{self_healing::is_missing_file_error, ExecRequest, SandboxError};
 use commands::WriteToDeploymentStorageCommand;
 use common::error::AppError;
 use common::ResultExt;
@@ -132,11 +132,14 @@ impl AgentFilesystem {
         append: bool,
     ) -> Result<WriteFileResult, AppError> {
         let final_bytes = if append {
-            let existing = self
-                .sandbox_handle
-                .read_file(&sandbox_path(path))
-                .await
-                .unwrap_or_default();
+            let existing = match self.sandbox_handle.read_file(&sandbox_path(path)).await {
+                Ok(existing) => existing,
+                // A missing target is the one intentional append-as-create case.
+                // Preserve every other read failure so a sandbox outage cannot
+                // turn an append into an accidental overwrite.
+                Err(SandboxError::NotFound(detail)) if is_missing_file_error(&detail) => Vec::new(),
+                Err(error) => return Err(map_sandbox_error(path, "read", error)),
+            };
             let mut buf = existing;
             if !buf.is_empty() && buf.last() != Some(&b'\n') && !content.starts_with('\n') {
                 buf.push(b'\n');
