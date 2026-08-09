@@ -38,29 +38,16 @@ impl AgentExecutor {
                 fields.retain(|field| {
                     matches!(field.name.as_str(), "task_key" | "title" | "description")
                 });
-            } else if let Some(status_field) =
-                fields.iter_mut().find(|field| field.name == "status")
-            {
-                if is_coordinator {
-                    status_field.enum_values = Some(vec![
-                        json!("pending"),
-                        json!("blocked"),
-                        json!("completed"),
-                        json!("cancelled"),
-                        json!("waiting_for_children"),
-                        json!("failed"),
-                    ]);
-                    status_field.description = Some(
-                        "Optional updated task status for coordinator decisions. Omit when status should stay unchanged. Do not use `in_progress` from the coordinator lane; the assigned execution lane owns that transition.".to_string(),
+            } else if is_coordinator {
+                if let Some(status_field) = fields.iter_mut().find(|field| field.name == "status") {
+                    status_field.enum_values = Some(
+                        crate::executor::project::status_machine::update_project_task_statuses()
+                            .iter()
+                            .map(|status| json!(status))
+                            .collect(),
                     );
-                } else {
-                    status_field.enum_values = Some(vec![
-                        json!("in_progress"),
-                        json!("blocked"),
-                        json!("failed"),
-                    ]);
                     status_field.description = Some(
-                        "Optional updated task status. Execution lanes may set `in_progress` (work has started), `blocked` (stuck on a missing dependency the coordinator must resolve), or `failed` (work cannot complete in its current shape). Terminal states like `completed` and `cancelled` are coordinator-only and not available here — finish your assignment cleanly and let the coordinator close or re-route the task. Omit when status should stay unchanged.".to_string(),
+                        "Optional updated task status for coordinator decisions. Supported values: pending, in_progress, completed, blocked, cancelled, failed, waiting_for_children, or needs_clarification. Omit when status should stay unchanged.".to_string(),
                     );
                 }
             }

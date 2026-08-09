@@ -260,7 +260,6 @@ pub fn create_project_task_schema() -> Vec<SchemaField> {
     SchemaField { name: "title".to_string(), field_type: "STRING".to_string(), description: Some("Short task title.".to_string()), required: true, ..Default::default() },
     SchemaField { name: "description".to_string(), field_type: "STRING".to_string(), description: Some("Optional canonical task description stored at creation.".to_string()), required: false, ..Default::default() },
     SchemaField { name: "status".to_string(), field_type: "STRING".to_string(), description: Some("Optional initial status. Default pending.".to_string()), enum_values: string_enum(&["pending", "in_progress", "blocked", "completed", "failed"]), required: false, ..Default::default() },
-    SchemaField { name: "priority".to_string(), field_type: "STRING".to_string(), description: Some("Optional priority. Default neutral.".to_string()), enum_values: string_enum(&["urgent", "high", "neutral", "low"]), required: false, ..Default::default() },
     SchemaField { name: "parent_task_key".to_string(), field_type: "STRING".to_string(), description: Some("Optional existing task key to link this task as a child (`child_of`).".to_string()), required: false, ..Default::default() },
     SchemaField { name: "schedule".to_string(), field_type: "OBJECT".to_string(), description: Some("Optional schedule for a template task. `kind=once` with next_run_at, or `kind=interval` with next_run_at + interval_seconds.".to_string()), required: false, properties: Some(vec![
         SchemaField { name: "kind".to_string(), field_type: "STRING".to_string(), description: Some("`once` or `interval`.".to_string()), enum_values: string_enum(&["once", "interval"]), required: true, ..Default::default() },
@@ -306,15 +305,8 @@ pub fn update_project_task_schema() -> Vec<SchemaField> {
                 "failed",
                 "cancelled",
                 "waiting_for_children",
+                "needs_clarification",
             ]),
-            required: false,
-            ..Default::default()
-        },
-        SchemaField {
-            name: "priority".to_string(),
-            field_type: "STRING".to_string(),
-            description: Some("Optional updated priority. Omit to leave unchanged.".to_string()),
-            enum_values: string_enum(&["urgent", "high", "neutral", "low"]),
             required: false,
             ..Default::default()
         },

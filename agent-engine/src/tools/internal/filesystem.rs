@@ -161,6 +161,7 @@ impl ToolExecutor {
             "path": params.path,
             "replacements": result.replacements,
             "total_lines": result.total_lines,
+            "whitespace_normalized": result.whitespace_normalized,
         }))
     }
 

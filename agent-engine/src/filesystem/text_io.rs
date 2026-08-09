@@ -1,4 +1,5 @@
 use super::{AgentFilesystem, EditFileResult, ReadFileResult, WriteFileResult};
+use crate::filesystem::paths::is_task_audit_path;
 use crate::sandbox::{self_healing::is_missing_file_error, ExecRequest, SandboxError};
 use commands::WriteToDeploymentStorageCommand;
 use common::error::AppError;
@@ -131,6 +132,13 @@ impl AgentFilesystem {
         content: &str,
         append: bool,
     ) -> Result<WriteFileResult, AppError> {
+        if is_task_audit_path(path) {
+            return Err(AppError::BadRequest(
+                "writes to /task/audit/ are runtime-only; write evidence to /task/review/ instead"
+                    .to_string(),
+            ));
+        }
+
         let final_bytes = if append {
             let existing = match self.sandbox_handle.read_file(&sandbox_path(path)).await {
                 Ok(existing) => existing,
@@ -168,6 +176,46 @@ impl AgentFilesystem {
         })
     }
 
+    /// Append runtime-owned audit content without exposing the audit path to
+    /// agent-facing write tools. This deliberately bypasses read authorization
+    /// bookkeeping and is only callable by the runtime audit writer.
+    pub(crate) async fn append_runtime_audit(
+        &self,
+        path: &str,
+        content: &str,
+    ) -> Result<WriteFileResult, AppError> {
+        if !is_task_audit_path(path) {
+            return Err(AppError::Internal(
+                "runtime audit writes must stay under /task/audit/".to_string(),
+            ));
+        }
+
+        let existing = match self.sandbox_handle.read_file(&sandbox_path(path)).await {
+            Ok(existing) => existing,
+            Err(SandboxError::NotFound(detail)) if is_missing_file_error(&detail) => Vec::new(),
+            Err(error) => return Err(map_sandbox_error(path, "audit read", error)),
+        };
+        let mut final_bytes = existing;
+        if !final_bytes.is_empty() && !final_bytes.ends_with(b"\n") {
+            final_bytes.push(b'\n');
+        }
+        final_bytes.extend_from_slice(content.as_bytes());
+        if !final_bytes.ends_with(b"\n") {
+            final_bytes.push(b'\n');
+        }
+
+        self.sandbox_handle
+            .write_file(&sandbox_path(path), &final_bytes)
+            .await
+            .map_err(|e| map_sandbox_error(path, "audit write", e))?;
+
+        Ok(WriteFileResult {
+            lines_written: content.lines().count(),
+            total_lines: String::from_utf8_lossy(&final_bytes).lines().count(),
+            partial: false,
+        })
+    }
+
     pub async fn edit_file(
         &self,
         path: &str,
@@ -175,6 +223,13 @@ impl AgentFilesystem {
         new_string: &str,
         replace_all: bool,
     ) -> Result<EditFileResult, AppError> {
+        if is_task_audit_path(path) {
+            return Err(AppError::BadRequest(
+                "writes to /task/audit/ are runtime-only; write evidence to /task/review/ instead"
+                    .to_string(),
+            ));
+        }
+
         if old_string.is_empty() {
             return Err(AppError::BadRequest(
                 "edit_file: old_string must not be empty. To create or fully overwrite a file use write_file; to add content at end-of-file use append_file.".to_string(),
@@ -204,7 +259,7 @@ impl AgentFilesystem {
             .map_err(|e| AppError::Internal(format!("file {} is not valid utf-8: {}", path, e)))?;
 
         let count = existing.matches(old_string).count();
-        let (new_content, replacements) = if count > 0 {
+        let (new_content, replacements, whitespace_normalized) = if count > 0 {
             if count > 1 && !replace_all {
                 return Err(AppError::BadRequest(format!(
                     "edit_file: old_string matched {count} times in {path}. Add surrounding context to make it unique, or set replace_all=true to replace every occurrence."
@@ -216,13 +271,13 @@ impl AgentFilesystem {
             } else {
                 existing.replacen(old_string, new_string, 1)
             };
-            (new_content, if replace_all { count } else { 1 })
+            (new_content, if replace_all { count } else { 1 }, false)
         } else if !replace_all {
             match flexible_replace(&existing, old_string, new_string) {
-                FlexibleEdit::Replaced(new_content) => (new_content, 1),
+                FlexibleEdit::Replaced(updated) => (updated, 1, true),
                 FlexibleEdit::Ambiguous(lines) => {
                     return Err(AppError::BadRequest(format!(
-                        "edit_file: old_string matched {} places in {path} after ignoring source whitespace (matches begin on lines {:?}). Add surrounding context to make it unique, or set replace_all=true for exact matches.",
+                        "edit_file: old_string matched {} places in {path} after ignoring source whitespace (matches begin on lines {:?}). Add surrounding context to make old_string unique, then retry.",
                         lines.len(),
                         lines
                     )));
@@ -249,6 +304,7 @@ impl AgentFilesystem {
         Ok(EditFileResult {
             replacements,
             total_lines: new_content.lines().count(),
+            whitespace_normalized,
         })
     }
 
@@ -397,7 +453,10 @@ fn normalize_source(source: &str) -> FlexibleSource {
         let end = start + ch.len_utf8();
         if let Some(active_quote) = quote {
             emit(ch, start, end);
-            if escaped {
+            if ch == '\n' {
+                quote = None;
+                escaped = false;
+            } else if escaped {
                 escaped = false;
             } else if ch == '\\' {
                 escaped = true;
@@ -510,6 +569,28 @@ mod flexible_edit_tests {
             panic!("repeated normalized source should be ambiguous");
         };
         assert_eq!(lines, vec![1, 3]);
+    }
+
+    #[test]
+    fn normalizes_after_unbalanced_apostrophe() {
+        let source = "// don't touch\nconst value = build(\n    first\n);\n";
+        let old = "const value = build(first);";
+
+        assert!(matches!(
+            flexible_replace(source, old, "replacement"),
+            FlexibleEdit::Replaced(_)
+        ));
+    }
+
+    #[test]
+    fn handles_multibyte_content() {
+        let source = "let emoji = \"🚀\";\nconst value = build(\n    first\n);\n";
+        let old = "const value = build(first);";
+
+        let FlexibleEdit::Replaced(updated) = flexible_replace(source, old, "replacement") else {
+            panic!("multi-byte source should match");
+        };
+        assert!(updated.contains("🚀"));
     }
 
     #[test]

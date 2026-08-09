@@ -269,7 +269,7 @@ impl AgentExecutor {
         content.push_str(&lines.join("\n"));
         if let Err(error) = self
             .filesystem
-            .write_file(&audit_path, &content, true)
+            .append_runtime_audit(&audit_path, &content)
             .await
         {
             tracing::warn!(
