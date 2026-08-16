@@ -1,5 +1,6 @@
 use super::{AgentFilesystem, EditFileResult, ReadFileResult, WriteFileResult};
-use crate::sandbox::{ExecRequest, SandboxError};
+use crate::filesystem::paths::is_task_audit_path;
+use crate::sandbox::{self_healing::is_missing_file_error, ExecRequest, SandboxError};
 use commands::WriteToDeploymentStorageCommand;
 use common::error::AppError;
 use common::ResultExt;
@@ -131,12 +132,22 @@ impl AgentFilesystem {
         content: &str,
         append: bool,
     ) -> Result<WriteFileResult, AppError> {
+        if is_task_audit_path(path) {
+            return Err(AppError::BadRequest(
+                "writes to /task/audit/ are runtime-only; write evidence to /task/review/ instead"
+                    .to_string(),
+            ));
+        }
+
         let final_bytes = if append {
-            let existing = self
-                .sandbox_handle
-                .read_file(&sandbox_path(path))
-                .await
-                .unwrap_or_default();
+            let existing = match self.sandbox_handle.read_file(&sandbox_path(path)).await {
+                Ok(existing) => existing,
+                // A missing target is the one intentional append-as-create case.
+                // Preserve every other read failure so a sandbox outage cannot
+                // turn an append into an accidental overwrite.
+                Err(SandboxError::NotFound(detail)) if is_missing_file_error(&detail) => Vec::new(),
+                Err(error) => return Err(map_sandbox_error(path, "read", error)),
+            };
             let mut buf = existing;
             if !buf.is_empty() && buf.last() != Some(&b'\n') && !content.starts_with('\n') {
                 buf.push(b'\n');
@@ -165,6 +176,46 @@ impl AgentFilesystem {
         })
     }
 
+    /// Append runtime-owned audit content without exposing the audit path to
+    /// agent-facing write tools. This deliberately bypasses read authorization
+    /// bookkeeping and is only callable by the runtime audit writer.
+    pub(crate) async fn append_runtime_audit(
+        &self,
+        path: &str,
+        content: &str,
+    ) -> Result<WriteFileResult, AppError> {
+        if !is_task_audit_path(path) {
+            return Err(AppError::Internal(
+                "runtime audit writes must stay under /task/audit/".to_string(),
+            ));
+        }
+
+        let existing = match self.sandbox_handle.read_file(&sandbox_path(path)).await {
+            Ok(existing) => existing,
+            Err(SandboxError::NotFound(detail)) if is_missing_file_error(&detail) => Vec::new(),
+            Err(error) => return Err(map_sandbox_error(path, "audit read", error)),
+        };
+        let mut final_bytes = existing;
+        if !final_bytes.is_empty() && !final_bytes.ends_with(b"\n") {
+            final_bytes.push(b'\n');
+        }
+        final_bytes.extend_from_slice(content.as_bytes());
+        if !final_bytes.ends_with(b"\n") {
+            final_bytes.push(b'\n');
+        }
+
+        self.sandbox_handle
+            .write_file(&sandbox_path(path), &final_bytes)
+            .await
+            .map_err(|e| map_sandbox_error(path, "audit write", e))?;
+
+        Ok(WriteFileResult {
+            lines_written: content.lines().count(),
+            total_lines: String::from_utf8_lossy(&final_bytes).lines().count(),
+            partial: false,
+        })
+    }
+
     pub async fn edit_file(
         &self,
         path: &str,
@@ -172,6 +223,13 @@ impl AgentFilesystem {
         new_string: &str,
         replace_all: bool,
     ) -> Result<EditFileResult, AppError> {
+        if is_task_audit_path(path) {
+            return Err(AppError::BadRequest(
+                "writes to /task/audit/ are runtime-only; write evidence to /task/review/ instead"
+                    .to_string(),
+            ));
+        }
+
         if old_string.is_empty() {
             return Err(AppError::BadRequest(
                 "edit_file: old_string must not be empty. To create or fully overwrite a file use write_file; to add content at end-of-file use append_file.".to_string(),
@@ -201,24 +259,39 @@ impl AgentFilesystem {
             .map_err(|e| AppError::Internal(format!("file {} is not valid utf-8: {}", path, e)))?;
 
         let count = existing.matches(old_string).count();
-        match (count, replace_all) {
-            (0, _) => {
+        let (new_content, replacements, whitespace_normalized) = if count > 0 {
+            if count > 1 && !replace_all {
                 return Err(AppError::BadRequest(format!(
-                    "edit_file: old_string not found in {path}. The file may have changed since you last read it, or your old_string contains paraphrased whitespace. Re-read the file and copy the exact bytes."
+                    "edit_file: old_string matched {count} times in {path}. Add surrounding context to make it unique, or set replace_all=true to replace every occurrence."
                 )));
             }
-            (n, false) if n > 1 => {
-                return Err(AppError::BadRequest(format!(
-                    "edit_file: old_string matched {n} times in {path}. Add surrounding context to make it unique, or set replace_all=true to replace every occurrence."
-                )));
-            }
-            _ => {}
-        }
 
-        let new_content = if replace_all {
-            existing.replace(old_string, new_string)
+            let new_content = if replace_all {
+                existing.replace(old_string, new_string)
+            } else {
+                existing.replacen(old_string, new_string, 1)
+            };
+            (new_content, if replace_all { count } else { 1 }, false)
+        } else if !replace_all {
+            match flexible_replace(&existing, old_string, new_string) {
+                FlexibleEdit::Replaced(updated) => (updated, 1, true),
+                FlexibleEdit::Ambiguous(lines) => {
+                    return Err(AppError::BadRequest(format!(
+                        "edit_file: old_string matched {} places in {path} after ignoring source whitespace (matches begin on lines {:?}). Add surrounding context to make old_string unique, then retry.",
+                        lines.len(),
+                        lines
+                    )));
+                }
+                FlexibleEdit::NoMatch => {
+                    return Err(AppError::BadRequest(format!(
+                        "edit_file: old_string not found in {path}. Matching ignores only source whitespace (indentation, line breaks, and repeated spaces); copy the exact non-whitespace text from read_file and keep it unique."
+                    )));
+                }
+            }
         } else {
-            existing.replacen(old_string, new_string, 1)
+            return Err(AppError::BadRequest(format!(
+                "edit_file: old_string not found in {path}. The file may have changed since you last read it, or your old_string contains paraphrased whitespace. Re-read the file and copy the exact bytes."
+            )));
         };
 
         self.sandbox_handle
@@ -229,8 +302,9 @@ impl AgentFilesystem {
         self.unmark_read(path);
 
         Ok(EditFileResult {
-            replacements: if replace_all { count } else { 1 },
+            replacements,
             total_lines: new_content.lines().count(),
+            whitespace_normalized,
         })
     }
 
@@ -337,4 +411,196 @@ impl AgentFilesystem {
 
 fn sandbox_path(path: &str) -> String {
     format!("/{}", path.trim_start_matches('/'))
+}
+
+struct FlexibleSource {
+    /// Whitespace is represented by one separator only when it separates two
+    /// word characters. All non-whitespace source bytes are preserved exactly.
+    text: String,
+    /// Source byte start/end offsets for each byte in `text`.
+    starts: Vec<usize>,
+    ends: Vec<usize>,
+}
+
+enum FlexibleEdit {
+    Replaced(String),
+    /// 1-based line number for each normalized match.
+    Ambiguous(Vec<usize>),
+    NoMatch,
+}
+
+/// Normalize only source whitespace while retaining the original byte span for
+/// every normalized byte. Whitespace inside quoted strings is preserved so a
+/// lenient edit cannot change string contents accidentally.
+fn normalize_source(source: &str) -> FlexibleSource {
+    let mut text = String::new();
+    let mut starts = Vec::new();
+    let mut ends = Vec::new();
+    let mut pending_whitespace: Option<(usize, usize)> = None;
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    let mut previous_word = false;
+
+    let mut emit = |ch: char, start: usize, end: usize| {
+        text.push(ch);
+        for _ in 0..ch.len_utf8() {
+            starts.push(start);
+            ends.push(end);
+        }
+    };
+
+    for (start, ch) in source.char_indices() {
+        let end = start + ch.len_utf8();
+        if let Some(active_quote) = quote {
+            emit(ch, start, end);
+            if ch == '\n' {
+                quote = None;
+                escaped = false;
+            } else if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == active_quote {
+                quote = None;
+            }
+            previous_word = false;
+            continue;
+        }
+
+        let current_word = ch.is_alphanumeric() || ch == '_';
+        if matches!(ch, '\'' | '"' | '`') {
+            pending_whitespace = None;
+            quote = Some(ch);
+            emit(ch, start, end);
+            previous_word = false;
+            continue;
+        }
+
+        if ch.is_whitespace() {
+            pending_whitespace = Some(match pending_whitespace {
+                Some((whitespace_start, _)) => (whitespace_start, end),
+                None => (start, end),
+            });
+            continue;
+        }
+
+        if let Some((whitespace_start, whitespace_end)) = pending_whitespace.take() {
+            if previous_word && current_word {
+                emit(' ', whitespace_start, whitespace_end);
+            }
+        }
+        emit(ch, start, end);
+        previous_word = current_word;
+    }
+
+    FlexibleSource { text, starts, ends }
+}
+
+/// Replace one unique source span after ignoring insignificant whitespace.
+/// Exact matching remains the fast path in `edit_file`; this fallback only
+/// relaxes indentation, line wrapping, and blank-line differences while keeping
+/// non-whitespace source tokens exact.
+fn flexible_replace(content: &str, old: &str, new: &str) -> FlexibleEdit {
+    let needle = normalize_source(old).text;
+    if needle.is_empty() {
+        return FlexibleEdit::NoMatch;
+    }
+
+    let source = normalize_source(content);
+    let mut matches = Vec::new();
+    let mut from = 0usize;
+    while let Some(position) = source.text[from..].find(&needle) {
+        let start = from + position;
+        let end = start + needle.len();
+        matches.push((source.starts[start], source.ends[end - 1]));
+        from = start + needle.len().max(1);
+    }
+
+    match matches.as_slice() {
+        [] => FlexibleEdit::NoMatch,
+        &[(start, end)] => {
+            let mut updated = String::with_capacity(content.len() + new.len());
+            updated.push_str(&content[..start]);
+            updated.push_str(new);
+            updated.push_str(&content[end..]);
+            FlexibleEdit::Replaced(updated)
+        }
+        multiple => FlexibleEdit::Ambiguous(
+            multiple
+                .iter()
+                .map(|(start, _)| content[..*start].matches('\n').count() + 1)
+                .collect(),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod flexible_edit_tests {
+    use super::{flexible_replace, FlexibleEdit};
+
+    #[test]
+    fn matches_source_with_different_whitespace() {
+        let source = "const value = build(\n    first,\tsecond\n);\n";
+        let old = "  const   value = build(first, second);  ";
+
+        let FlexibleEdit::Replaced(updated) = flexible_replace(source, old, "replacement") else {
+            panic!("whitespace-normalized source should match");
+        };
+        assert_eq!(updated, "replacement\n");
+    }
+
+    #[test]
+    fn rejects_changed_non_whitespace_tokens() {
+        let source = "const value = build(first, second);\n";
+        let old = "const value = build(first, changed);";
+
+        assert!(matches!(
+            flexible_replace(source, old, "replacement"),
+            FlexibleEdit::NoMatch
+        ));
+    }
+
+    #[test]
+    fn rejects_ambiguous_normalized_matches() {
+        let source = "const value = build(first, second);\n\nconst value = build(first, second);\n";
+        let old = "const value = build(first, second);";
+
+        let FlexibleEdit::Ambiguous(lines) = flexible_replace(source, old, "replacement") else {
+            panic!("repeated normalized source should be ambiguous");
+        };
+        assert_eq!(lines, vec![1, 3]);
+    }
+
+    #[test]
+    fn normalizes_after_unbalanced_apostrophe() {
+        let source = "// don't touch\nconst value = build(\n    first\n);\n";
+        let old = "const value = build(first);";
+
+        assert!(matches!(
+            flexible_replace(source, old, "replacement"),
+            FlexibleEdit::Replaced(_)
+        ));
+    }
+
+    #[test]
+    fn handles_multibyte_content() {
+        let source = "let emoji = \"🚀\";\nconst value = build(\n    first\n);\n";
+        let old = "const value = build(first);";
+
+        let FlexibleEdit::Replaced(updated) = flexible_replace(source, old, "replacement") else {
+            panic!("multi-byte source should match");
+        };
+        assert!(updated.contains("🚀"));
+    }
+
+    #[test]
+    fn preserves_whitespace_inside_quoted_strings() {
+        let source = "let value = \"hello  world\";\n";
+        let old = "let value = \"hello world\";";
+
+        assert!(matches!(
+            flexible_replace(source, old, "replacement"),
+            FlexibleEdit::NoMatch
+        ));
+    }
 }

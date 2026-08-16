@@ -207,13 +207,12 @@ pub fn resolve_user_feedback_tool() -> NativeToolDefinition {
 pub fn complete_tool() -> NativeToolDefinition {
     NativeToolDefinition {
         name: "terminate_loop".to_string(),
-        description: "End your turn and hand control back — the ONLY clean exit from the loop; \
-            pure text never ends a run, you must call `terminate_loop`. \
+        description: "End an execution turn and hand control back — the normal clean exit for service, coordinator, reviewer, and delegated runs. Conversation threads may instead finish on a plain-text reply with no tool calls; \
             Before calling, self-review the turn: every action you said you'd take must already be done \
             (tool call visible in history), journal updated for service work, user feedback resolved. \
             If anything is still pending, do it first and call `terminate_loop` on a later turn. \
-            If the work is genuinely blocked rather than done, don't fake success — set `update_project_task` \
-            status `blocked` with a result summary, then call `terminate_loop`. \
+            If the work is genuinely blocked rather than done, don't fake success — include the concrete blocker(s) in `blockers` and the handoff in `next_actions`, then call `terminate_loop`. During assignment execution the runtime records that assignment as blocked; coordinator routing runs must update the board status explicitly. \
+            Use `abort_task` only when the assignment-execution loop cannot exit cleanly. \
             Must be the only tool call in its response; text alongside it is delivered as your final reply/log. \
             `summary` is the durable handoff — the next lane or reviewer reads it cold, so ground it in what \
             actually happened this run. Pull `artifacts` from real tool results, never from intention."
@@ -257,13 +256,7 @@ pub fn complete_tool() -> NativeToolDefinition {
 pub fn abort_tool() -> NativeToolDefinition {
     NativeToolDefinition {
         name: "abort_task".to_string(),
-        description: "Last resort. Force-stops the current assignment: marks it blocked/cancelled, \
-            moves the board item to `blocked`, and cancels the task graph — it STALLS the task, it does \
-            not complete it. Never use it to finish work or to report a routine block. To finish cleanly \
-            call `terminate_loop`; to hand a block back while keeping routing intact, call \
-            `update_project_task` with status `blocked` (plus a result summary), then `terminate_loop`. \
-            Reach for `abort_task` only when you have already tried to exit cleanly and cannot — the loop \
-            is stuck and no tool is making progress."
+        description: "Last resort. During assignment execution, after the runtime has rejected clean termination at least twice, force-stops the current assignment and cancels the active task graph. With outcome `blocked`, it marks the assignment and board item blocked. With `return_to_coordinator`, it cancels the assignment without moving the board item to blocked; for delegated work the handoff goes to the delegating conversation thread. It does not complete the task. Use `terminate_loop` with blockers and next_actions for a clean blocked handoff whenever possible."
             .to_string(),
         input_schema: json!({
             "type": "object",
@@ -271,8 +264,8 @@ pub fn abort_tool() -> NativeToolDefinition {
                 "outcome": {
                     "type": "string",
                     "enum": ["blocked", "return_to_coordinator"],
-                    "description": "blocked: task is stuck and cannot proceed. \
-                        return_to_coordinator: escalate back to the coordinator for re-routing."
+            "description": "blocked: during assignment execution, the assignment and board item are marked blocked. \
+                        return_to_coordinator: during assignment execution, cancel the assignment and surface the reason to the delegating/coordinator thread; the board item is not automatically marked blocked."
                 },
                 "reason": {
                     "type": "string",

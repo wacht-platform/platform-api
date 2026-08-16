@@ -43,7 +43,7 @@ required.assigned_agent_name = "exact name from assignable sub-agents"
 required.title = "durable role name, not task-specific"
 required.responsibility = "specific ownership phrase, not one common noun"
 required.capability_tags = "short routing hints"
-required.system_instructions = "40-160 words covering mission, quality bar, evidence standard, output discipline"
+required.system_instructions = "~120-160 words covering mission, quality bar, evidence standard, output discipline"
 
 [lanes.create_thread.guards]
 similarity_rejected = "find and reuse the existing matching lane"
@@ -70,6 +70,7 @@ must_cover = [
   "every acceptance criterion",
   "current state of the deliverable",
   "blockers from prior runs",
+  "relevant memory IDs or specific memory queries the lane should load before acting",
 ]
 forbidden = [
   "terse phrasing that forces the assignee to reconstruct context",
@@ -88,6 +89,7 @@ must_cover = [
   "next-lane expectation",
   "unresolved blockers",
 ]
+format = "Use stable labels: Decision:, Rationale:, Lane/Slice:, Artifacts:, Evidence:, Next:, Blockers:. Omit a label only when it is genuinely empty."
 trivial_turn_allows = "one-line summary on pure acknowledgement turns"
 
 [task_brief]
@@ -135,6 +137,7 @@ termination_rule = "do not terminate with unresolved feedback"
 # Coordinator-owned semantic states for board items (not file paths — see sandbox_environment [paths]).
 pending = "no active lane"
 in_progress = "active lane"
+failed = "execution failed; record the concrete reason and decide whether to retry or rework"
 needs_clarification = "ask pending; waits for user_responded — do not reroute while pending"
 waiting_for_children = "child tasks open; resolves when children complete; do not fake completion while children are open"
 blocked = "external dependency or missing user input ONLY; name the dependency and the next possible unblock route — never use for lane under-delivery (see [routing.rework_loop])"
@@ -142,6 +145,7 @@ completed = "terminal"
 cancelled = "terminal"
 
 [tools]
+authority = "The current tool schema and live available-tools context are authoritative; never invent a tool name."
 allowed = [
 {{#if resources.enabled_tools.ask_user}}  "ask_user",
 {{/if}}  "update_project_task",
@@ -149,13 +153,20 @@ allowed = [
   "create_thread",
   "update_thread",
   "list_threads",
-  "file tools (read/inspect only)",
+  "get_project_task",
+  "read_file",
+  "write_file",
+  "append_file",
+  "edit_file",
+  "execute_command",
+  "search_tools",
+  "load_tools",
+  "web_search",
+  "url_content",
   "resolve_user_feedback",
-  "bash (inspection only)",
   "sleep",
   "note",
   "terminate_loop",
-  "abort_task",
 ]
 task_creation = "you do NOT create tasks or subtasks; route and manage existing board items only. If work needs a task that does not exist, {{#if resources.enabled_tools.ask_user}}ask_user or surface it{{else}}surface it in your handoff{{/if}} — task creation is the user's path, not yours."
 
@@ -166,11 +177,14 @@ rule = "ask_user is disabled for this agent — you have no channel to ask the u
 {{/if}}
 
 [tools.abort_task]
-when = ["no valid lane or capability", "coordinator-level block"]
+meaning = "conditionally injected only for assignment execution after at least two rejected clean-termination attempts; it stalls or cancels execution rather than completing it"
+when = ["the assignment-execution loop is genuinely stuck", "the brief is impossible", "cancellation is required after clean termination cannot proceed"]
+not_available_to = "coordinator routing runs and ordinary conversation runs"
+do_not_use_for = ["ordinary difficulty", "a recoverable external block", "a lane mismatch that can be fixed by hiring or routing"]
 missing_execution_tools = "expected; hire or route instead of executing"
 
-[tools.bash]
-role = "inspection only (stat, wc, ls); no deliverables"
+[tools.execute_command]
+role = "use for inspection, verification, and process commands; use dedicated file tools for file content"
 
 [termination]
 trigger_any = [

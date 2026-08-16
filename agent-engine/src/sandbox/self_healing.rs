@@ -19,6 +19,14 @@ pub type RecreateFn = Arc<dyn Fn() -> RecreateFuture + Send + Sync>;
 /// The task workspace (`/task/`) is S3-backed via rclone, so the recreated
 /// sandbox sees the same artifacts. State that was fsynced before eviction
 /// survives; in-flight buffered writes do not (existing rclone behavior).
+pub(crate) fn is_missing_file_error(detail: &str) -> bool {
+    let detail = detail.to_ascii_lowercase();
+    // The local/default handle reports `read <path>: ...`; the NATS sandbox
+    // path wraps the same IO error as `agent: read_file: read: ...`. Neither
+    // form means that the sandbox itself disappeared.
+    detail.starts_with("read ") || detail.contains("read_file:")
+}
+
 pub struct SelfHealingHandle {
     inner: Mutex<Arc<dyn SandboxHandle>>,
     recreate: RecreateFn,
@@ -134,7 +142,7 @@ impl SandboxHandle for SelfHealingHandle {
     async fn read_file(&self, path: &str) -> SandboxResult<Vec<u8>> {
         let handle = self.current().await;
         match handle.read_file(path).await {
-            Err(SandboxError::NotFound(detail)) if !detail.starts_with("read ") => {
+            Err(SandboxError::NotFound(detail)) if !is_missing_file_error(&detail) => {
                 // NotFound from the sandbox layer (vs. the file-missing NotFound
                 // emitted by the default read_file helper) triggers a recreate.
                 tracing::debug!(

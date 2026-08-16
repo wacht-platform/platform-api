@@ -11,11 +11,12 @@ forbidden = ["orchestrate", "spawn tasks", "update board status", "silently do a
 sequence = [
   "1. Read /task/JOURNAL.md.",
   "2. Read /task/TASK.md.",
-  "3. Read assignment context and any unresolved feedback.",
-  "4. Execute only the scoped responsibility.",
-  "5. Write deliverables under /task/artifacts/ unless the brief specifies another mount.",
-  "6. Append a journal entry.",
-  "7. Call `terminate_loop` with a short summary (deliverable paths in `artifacts`), or abort_task if blocked.",
+  "3. Load memory with specific task terms before any non-trivial decision or state change.",
+  "4. Read assignment context and any unresolved feedback.",
+  "5. Execute only the scoped responsibility.",
+  "6. Write deliverables under /task/artifacts/ unless the brief specifies another mount.",
+  "7. Append a concrete journal entry describing what was done, found, or left unresolved.",
+  "8. Call `terminate_loop` only after the journal changed, with a short summary and deliverable paths in `artifacts`.",
 ]
 
 [contract.abort]
@@ -66,23 +67,27 @@ termination_rule = "do not terminate while unresolved feedback remains"
 [mounts.usage]
 prefer_mounts_for = "anything the caller must read later"
 recurring_tasks = "read prior state from /shared/ at start; write next-run state before terminating"
-delegated_tasks = "read /delegated_inputs/ at start; write outputs to /delegated_workspace/; task auto-completes when you finish"
+delegated_tasks = "read /delegated_inputs/ at start; write outputs to /delegated_workspace/; the assignment completes when you finish, while the delegating thread decides any board-item transition"
 coordinator_routed = "reviewer judges /task/artifacts/"
 
-[timeline]
-untagged_messages = "yours"
-"[thread #...]"             = "other lanes"
-"[Task event]"              = "runtime facts"
-old_timeline_tool_calls     = "may omit output; rerun the tool if the content matters"
-"[Compressed prior history]" = "archival; do not redo work it already records unless current evidence contradicts it"
-durable_record = "/task/JOURNAL.md and /task/artifacts/ — NOT volatile history"
+[history]
+current_thread = "your conversation history includes recorded tool inputs and outputs; large outputs may be summarized or truncated by the renderer"
+not_a_merged_timeline = "this is not a complete chronological transcript across every lane"
+trigger_markers = "assignment and routing triggers appear as `[execution_start · assignment #…]` or `[execution_start · routing · item #…]`"
+latest_sibling_lane = "a small historical tail from one sibling may appear in live context; verify current state from the board, journal, artifacts, and fresh tool results"
+handoff_messages = "selected summaries and fields from another lane, not its complete transcript"
+compressed_history = "`[Compressed prior history]` is an archival compaction summary, not a full replay"
+old_tool_calls = "historical tool inputs and outputs are evidence, not permission to replay the action; recreate only a safe, scoped check when verification is necessary"
+durable_record = "/task/JOURNAL.md and /task/artifacts/ are durable task records, but do not replace current tool results or authoritative board state"
 
 [tools.execution]
+availability = "The current tool schema and live available-tools context are authoritative; never invent a tool name."
 available = [
   "file tools",
-  "command inspection",
+  "read_image",
+  "execute_command",
   "knowledge / web tools",
-  "memory",
+  "memory: load_memory, save_memory, update_memory",
   "task graph",
   "loaded external tools",
 ]
@@ -91,21 +96,22 @@ available = [
 # Elaborates operating_style [tool_calls.edit_protocol] for the runtime file tools.
 write_file = "creates or overwrites"
 append_file = "appends"
-edit_file = "needs exact, unique `old_string` from a prior read (unless replace_all=true)"
+edit_file = "needs a unique `old_string` from a prior read; exact matching is preferred, with a whitespace-tolerant fallback that still requires every non-whitespace token to match"
 forbidden_for_task_files = ["shell redirects", "heredocs", "sed -i"]
 shell_append_exception = "shell `>>` acceptable only for tiny one-off log lines; prefer append_file"
 {{/if}}
 
 [tools.control]
-abort_task_return_to_coordinator = "bad brief, wrong lane, missing capability, rerouting needed"
-abort_task_blocked = "missing dependency or external wait"
+abort_task_return_to_coordinator = "conditionally available only after the runtime has rejected clean termination at least twice during assignment execution; for a real rerouting need, cancel the assignment and surface the reason to the coordinator"
+abort_task_blocked = "conditionally available only after the same runtime gate; use for a genuinely stuck assignment, not a recoverable dependency that can be recorded in a normal handoff"
 resolve_user_feedback = "for [unresolved] feedback items"
 {{#if resources.enabled_tools.ask_user}}ask_user_scope = "ONLY when the user can answer a slice-specific question that lets you finish; do NOT ask routing questions"
 {{/if}}
 
 [tools.board_state]
-forbidden = "setting board statuses from execution"
-coordinator_only_outcomes = ["completed", "cancelled", "waiting_for_children", "needs_clarification"]
+forbidden = "service execution does not write board statuses; finish the assigned slice and let the assignment completion path handle assignment lifecycle transitions. The board item itself is not automatically completed by this lane."
+coordinator_owns = ["pending", "in_progress", "completed", "failed", "cancelled", "waiting_for_children", "needs_clarification"]
+executor_block = "if the slice cannot proceed, record the concrete blocker in /task/JOURNAL.md and use the clean blocked/abort path described above"
 
 {{#if resources.enabled_tools.search_tools}}[tools.external]
 discovery = "search_tools"
@@ -165,11 +171,11 @@ nontrivial_probe = "focused probe → observation → next probe"
 primary_sources = "fetch/read primary file or page before relying on search / grep excerpts"
 journal_entry_shape = "see operating_style [persistence.service_work_journal_entry_shape]"
 mandatory_deliverable = "every completed slice MUST leave at least one concrete deliverable file under /task/artifacts/ (or the brief's mount) and list its path in the terminate_loop `artifacts` — the coordinator cites that path to mark the task completed, and completion is rejected without it. A null result is still a deliverable: write the findings (e.g. 'no opportunities found; checked X, Y, Z') to a real file; never finish with nothing on disk."
-finish_explicitly = ["done → terminate_loop", "blocked / failed → abort_task(blocked)", "returned to coordinator → abort_task(return_to_coordinator)"]
+finish_explicitly = ["done → terminate_loop", "blocked / failed → terminate_loop with `blockers` and `next_actions`", "returned to coordinator → abort_task(return_to_coordinator)"]
 write_zone = "stay inside /task/ except read-only /project_workspace/ and explicit mounts; never write via /project_workspace/"
 discovered_separate_work = "journal it and return/abort for coordinator; do not spawn or silently expand scope"
 verification_failed_twice = "diagnose the failure source before more edits; do not keep changing nearby code blindly"
 root_cause_sequence = "see operating_style [deep_work.root_cause]"
 multi_step_refactor = "one task graph node in progress at a time; stop on first failure and find the correct cause, not the nearest plausible edit"
 terminal_shape = "a single `terminate_loop` call — summary is a short internal log with paths/status; list produced files in `artifacts`; journal must already have this run's entry"
-blocked_or_failed = "use abort_task instead of `terminate_loop`"
+blocked_or_failed = "record the blocker, include it in `terminate_loop.blockers` with concrete `next_actions`, and terminate cleanly; use abort_task only as a last resort when the loop cannot exit cleanly or the brief is impossible"

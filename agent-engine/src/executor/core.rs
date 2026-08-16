@@ -19,19 +19,55 @@ pub enum ResumeContext {
 /// Wording, key, and log severity live here — call sites only pick a variant.
 #[derive(Debug, Clone)]
 pub(crate) enum RuntimeSignal {
-    NoteLoop { count: usize },
+    NoteLoop {
+        count: usize,
+    },
     EmptyResponse,
     ResponseTruncated,
-    ShellDiscipline { message: String },
-    ShellDisciplineEscalated { count: usize },
-    ToolCallLoop { count: usize },
-    BatchBackpressure { batch_size: usize },
+    ShellDiscipline {
+        message: String,
+    },
+    ShellDisciplineEscalated {
+        count: usize,
+    },
+    ToolCallLoop {
+        count: usize,
+    },
+    /// Transient signal emitted when the same tool-call signature recurs within
+    /// the bounded recent-turn window without being adjacent.
+    ToolCallCycle {
+        cycle_len: usize,
+    },
+    /// Transient signal emitted when the LLM invokes a tool name absent from the
+    /// current turn's allowed set. Cleared after one prompt render (transient by
+    /// discriminant dedup).
+    UnknownToolCall {
+        tool_name: String,
+    },
+    /// Sustained escalation emitted each turn while tool-failure or
+    /// unproductive-turn counters remain elevated. Re-emitted every iteration so
+    /// the signal persists until the condition resolves or the loop aborts.
+    /// Role-aware: carries `ask_user_available` so the message can guide the
+    /// model toward the right recovery path.
+    ToolFailureEscalation {
+        ask_user_available: bool,
+        failure_count: usize,
+        unproductive_count: usize,
+    },
+    BatchBackpressure {
+        batch_size: usize,
+    },
     CompleteRequired,
-    CompleteBlocked { reason: String },
-    AskUserBlocked { reason: String },
+    CompleteBlocked {
+        reason: String,
+    },
+    AskUserBlocked {
+        reason: String,
+    },
     UserVisibilityLapse,
     CoordinatorBriefMissing,
     StateIntent,
+    LlmRequestFailed,
 }
 
 impl RuntimeSignal {
@@ -44,6 +80,9 @@ impl RuntimeSignal {
                 "shell_discipline"
             }
             Self::ToolCallLoop { .. } => "tool_call_loop",
+            Self::ToolCallCycle { .. } => "tool_call_cycle",
+            Self::UnknownToolCall { .. } => "unknown_tool_call",
+            Self::ToolFailureEscalation { .. } => "tool_failure_escalation",
             Self::BatchBackpressure { .. } => "batch_backpressure",
             Self::CompleteRequired => "complete_required",
             Self::CompleteBlocked { .. } => "complete_blocked",
@@ -51,6 +90,7 @@ impl RuntimeSignal {
             Self::UserVisibilityLapse => "user_visibility",
             Self::CoordinatorBriefMissing => "coordinator_brief_missing",
             Self::StateIntent => "state_intent",
+            Self::LlmRequestFailed => "llm_request_failed",
         }
     }
 
@@ -68,15 +108,33 @@ impl RuntimeSignal {
             Self::ToolCallLoop { count } => format!(
                 "identical tool call repeated {count} turns in a row; the result will not change — change inputs, change tool, or report blocked"
             ),
+            Self::ToolCallCycle { cycle_len } => format!(
+                "the same tool-call signature recurred after {cycle_len} turns; change inputs, change tool, or report blocked"
+            ),
+            Self::UnknownToolCall { tool_name } => format!(
+                "tool '{tool_name}' is not in this turn's allowed set; pick a tool from the available list by exact name, or respond with text if none fit"
+            ),
+            Self::ToolFailureEscalation { ask_user_available, failure_count, unproductive_count } => {
+                if *ask_user_available {
+                    format!(
+                        "{failure_count} consecutive tool failures and {unproductive_count} unproductive turns — stop retrying the same approach. Either ask the user for clarification via `ask_user`, change strategy completely, or call `terminate_loop` with a status report"
+                    )
+                } else {
+                    format!(
+                        "{failure_count} consecutive tool failures and {unproductive_count} unproductive turns — stop retrying the same approach. Change strategy completely, or call `terminate_loop` to report the blocker"
+                    )
+                }
+            },
             Self::BatchBackpressure { batch_size } => format!(
                 "{batch_size} tool calls in one turn; read those results and let them choose the next narrow step before fanning out further"
             ),
-            Self::CompleteRequired => "STOP-CHECK: your last turn was text with no tool call. You run inside a loop that re-prompts you every turn, and plain text NEVER exits it — that is why you are being called again. The text you already sent was delivered; do NOT repeat it. Choose now, this turn: (a) if the work is done and that text was your final output, call `terminate_loop` alone (summary only, no new message) — it is the ONLY way out; or (b) if you meant to keep going, take the next concrete step with a real tool call. Do NOT answer in plain text again — that only spins the loop without ending it".to_string(),
+            Self::CompleteRequired => "STOP-CHECK: your last turn was text with no tool call. Conversation threads finish on a plain-text reply; non-conversation runs normally require an explicit terminal tool, and the runtime may auto-complete after bounded text-only nudges. Choose now: (a) if the work is done, call `terminate_loop` alone when it is available; or (b) if you meant to keep going, take the next concrete step with a real tool call. Do not repeat a delivered answer.".to_string(),
             Self::CompleteBlocked { reason } => reason.clone(),
             Self::AskUserBlocked { reason } => reason.clone(),
             Self::UserVisibilityLapse => "no user-visible message in the last 4 visible steps; add one short progress line beside the next tool call unless it is a tiny read".to_string(),
             Self::CoordinatorBriefMissing => "the task brief `/task/TASK.md` isn't ready yet — write a complete brief there (objective, scope, acceptance criteria) before routing work to a lane, so the executor has one to read".to_string(),
             Self::StateIntent => "a new user message just arrived — call `note` once stating your intent: one or two sentences covering any work you were mid-way through (so it survives the interruption) and what you will do next for this message, then proceed (you may batch it with your first real step)".to_string(),
+            Self::LlmRequestFailed => "the previous model request failed before producing output; emit a simpler, shorter response this turn — fewer tool calls, narrower scope, or split the work into smaller steps".to_string(),
         }
     }
 
@@ -87,7 +145,11 @@ impl RuntimeSignal {
                 | Self::EmptyResponse
                 | Self::ResponseTruncated
                 | Self::ToolCallLoop { .. }
+                | Self::ToolCallCycle { .. }
+                | Self::UnknownToolCall { .. }
+                | Self::ToolFailureEscalation { .. }
                 | Self::CompleteBlocked { .. }
+                | Self::LlmRequestFailed
         )
     }
 
@@ -149,6 +211,10 @@ pub struct AgentExecutor {
     pub(crate) complete_nudge_count: usize,
     pub(crate) terminate_loop_guard_rejections: usize,
     pub(crate) pending_runtime_signals: Vec<RuntimeSignal>,
+    /// Bounded window of recent tool-call signatures for non-adjacent cycle
+    /// detection. Only the most recent N entries are kept; each signature is a
+    /// sorted concatenation of `name:args` for the turn's non-meta tool calls.
+    pub(crate) recent_tool_call_signatures: std::collections::VecDeque<String>,
     pub(crate) audit_run_header_written: bool,
     pub(crate) preloaded_immediate_context: Option<ImmediateContext>,
     pub(crate) budget: super::budget::BudgetCounter,
@@ -472,6 +538,7 @@ impl AgentExecutorBuilder {
             complete_nudge_count: 0,
             terminate_loop_guard_rejections: 0,
             pending_runtime_signals: Vec::new(),
+            recent_tool_call_signatures: std::collections::VecDeque::new(),
             audit_run_header_written: false,
             preloaded_immediate_context: Some(immediate_context),
             budget: super::budget::BudgetCounter::new(run_token_budget),
@@ -525,6 +592,10 @@ impl AgentExecutorBuilder {
             );
         }
 
+        if matches!(tool_name, "assign_project_task") {
+            return false;
+        }
+
         true
     }
 }
@@ -534,7 +605,6 @@ fn parallel_extract_available() -> bool {
     static AVAILABLE: OnceLock<bool> = OnceLock::new();
     *AVAILABLE.get_or_init(|| std::env::var("PARALLEL_API_KEY").is_ok())
 }
-
 impl AgentExecutor {
     pub(crate) fn thread_event_implies_coordinator(event_type: &str) -> bool {
         matches!(event_type, models::thread_event::event_type::TASK_ROUTING)
@@ -641,6 +711,7 @@ impl AgentExecutor {
             "subscribe_to_task" | "unsubscribe_from_task" | "delegate_task" => {
                 self.is_conversation_thread
             }
+            "assign_project_task" => self.effective_is_coordinator_thread(),
             "update_memory" => self.has_loaded_memory_this_session(),
             _ => true,
         }

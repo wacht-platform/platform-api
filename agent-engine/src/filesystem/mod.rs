@@ -42,4 +42,5 @@ pub struct WriteFileResult {
 pub struct EditFileResult {
     pub replacements: usize,
     pub total_lines: usize,
+    pub whitespace_normalized: bool,
 }

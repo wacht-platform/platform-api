@@ -78,10 +78,14 @@ impl AgentExecutor {
             .await?
         {
             self.request_user_approval(approval_request).await?;
-            return Ok(ToolExecutionLoopOutcome { any_pending: true });
+            return Ok(ToolExecutionLoopOutcome {
+                any_pending: true,
+                had_failure: false,
+            });
         }
 
         let batch_was_empty = planned_calls.is_empty();
+        let mut had_failure = false;
         let mut audit_lines: Vec<String> = Vec::new();
         let mut failed_tools: std::collections::BTreeSet<String> =
             std::collections::BTreeSet::new();
@@ -106,6 +110,7 @@ impl AgentExecutor {
                         &preview,
                         Some(&error.to_string()),
                     ));
+                    had_failure = true;
                     failed_tools.insert(tool_name.clone());
                     self.record_tool_execution_result(&call, Err(error), &mut any_pending)
                         .await?;
@@ -157,6 +162,7 @@ impl AgentExecutor {
                 audit_error.as_deref(),
             ));
             if call_failed {
+                had_failure = true;
                 failed_tools.insert(tool_name.clone());
             } else {
                 succeeded_tools.insert(tool_name.clone());
@@ -175,7 +181,10 @@ impl AgentExecutor {
         }
         self.append_task_audit(&audit_lines).await;
 
-        Ok(ToolExecutionLoopOutcome { any_pending })
+        Ok(ToolExecutionLoopOutcome {
+            any_pending,
+            had_failure,
+        })
     }
 
     // Same-tool failure streak; consumed only by reasoning-effort escalation.
@@ -260,7 +269,7 @@ impl AgentExecutor {
         content.push_str(&lines.join("\n"));
         if let Err(error) = self
             .filesystem
-            .write_file(&audit_path, &content, true)
+            .append_runtime_audit(&audit_path, &content)
             .await
         {
             tracing::warn!(

@@ -22,6 +22,19 @@ impl ThreadRole {
     }
 }
 
+pub fn update_project_task_statuses() -> &'static [&'static str] {
+    &[
+        "pending",
+        "in_progress",
+        "completed",
+        "blocked",
+        "cancelled",
+        "failed",
+        "waiting_for_children",
+        "needs_clarification",
+    ]
+}
+
 /// Statuses a given role is allowed to write via `update_project_task`.
 ///
 /// Coordinator and conversation threads drive the full task lifecycle. Reviewers
@@ -33,18 +46,7 @@ impl ThreadRole {
 /// `needs_clarification` mid-flight.
 fn allowed_statuses_for_role(role: ThreadRole) -> &'static [&'static str] {
     match role {
-        ThreadRole::Coordinator | ThreadRole::Conversation => &[
-            "pending",
-            "available",
-            "claimed",
-            "in_progress",
-            "completed",
-            "rejected",
-            "blocked",
-            "cancelled",
-            "failed",
-            "waiting_for_children",
-        ],
+        ThreadRole::Coordinator | ThreadRole::Conversation => update_project_task_statuses(),
         ThreadRole::Reviewer => &["rejected", "blocked", "failed"],
         ThreadRole::Executor => &["blocked"],
     }

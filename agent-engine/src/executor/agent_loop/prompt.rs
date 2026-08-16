@@ -1054,7 +1054,7 @@ impl AgentExecutor {
         if self.current_board_item_id().is_some() {
             enabled_tools.insert("resolve_user_feedback".to_string(), true);
         }
-        if self.can_abort_current_assignment_execution() {
+        if self.should_offer_abort_task() {
             enabled_tools.insert("abort_task".to_string(), true);
         }
 

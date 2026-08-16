@@ -30,6 +30,16 @@ pub struct ShellExecutor {
     cwd: String,
 }
 
+fn command_references_runtime_audit(command: &str) -> bool {
+    let mut normalized = command.replace('\\', "/").replace("/./", "/");
+    while normalized.contains("//") {
+        normalized = normalized.replace("//", "/");
+    }
+    normalized.contains("/task/audit")
+        || normalized.contains("task/audit")
+        || normalized.contains("/task/../task/audit")
+}
+
 impl ShellExecutor {
     pub fn new(sandbox_handle: Arc<dyn SandboxHandle>) -> Self {
         Self {
@@ -61,6 +71,13 @@ impl ShellExecutor {
         command_line: &str,
         timeout_override_secs: Option<u64>,
     ) -> Result<ShellOutput, AppError> {
+        if command_references_runtime_audit(command_line) {
+            return Err(AppError::BadRequest(
+                "execute_command cannot access runtime-owned /task/audit/; write evidence to /task/review/ instead"
+                    .to_string(),
+            ));
+        }
+
         let effective_timeout = timeout_override_secs
             .map(|s| Duration::from_secs(s.clamp(1, MAX_TIMEOUT.as_secs())))
             .unwrap_or(self.timeout);
@@ -68,7 +85,7 @@ impl ShellExecutor {
             .sandbox_handle
             .exec(ExecRequest {
                 command: vec!["bash".into(), "-lc".into(), command_line.to_string()],
-                cwd: Some("/workspace".into()),
+                cwd: Some(self.cwd.clone()),
                 env: Default::default(),
                 timeout: Some(effective_timeout),
                 exec_id: None,

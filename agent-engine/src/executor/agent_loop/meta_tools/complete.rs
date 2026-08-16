@@ -22,6 +22,17 @@ impl CompletionHandoff {
             next_actions: None,
         }
     }
+
+    pub(crate) fn is_blocked(&self) -> bool {
+        self.blockers.as_ref().is_some_and(|value| match value {
+            Value::Array(items) => !items.is_empty(),
+            Value::Object(fields) => !fields.is_empty(),
+            Value::String(text) => !text.trim().is_empty(),
+            Value::Bool(value) => *value,
+            Value::Number(_) => true,
+            Value::Null => false,
+        })
+    }
 }
 
 impl AgentExecutor {
@@ -135,15 +146,30 @@ impl AgentExecutor {
             ConversationContent::Steer {
                 message: final_message,
                 further_actions_required: false,
-                reasoning: "Run completed — terminal handoff recorded.".to_string(),
+                reasoning: "Run terminal handoff recorded.".to_string(),
                 attachments: None,
             },
             ConversationMessageType::Steer,
         )
         .await?;
 
+        let execution_state = {
+            let mut state = self.build_execution_state_snapshot(None);
+            if handoff.is_blocked() && self.can_abort_current_assignment_execution() {
+                state.assignment_outcome_override = Some(models::ThreadAssignmentOutcomeOverride {
+                    assignment_status: models::project_task_board::assignment_status::BLOCKED
+                        .to_string(),
+                    result_status: Some(
+                        models::project_task_board::assignment_result_status::BLOCKED.to_string(),
+                    ),
+                    note: Some(handoff.summary.clone()),
+                });
+            }
+            state
+        };
+
         UpdateAgentThreadStateCommand::new(self.ctx.thread_id, self.ctx.agent.deployment_id)
-            .with_execution_state(self.build_execution_state_snapshot(None))
+            .with_execution_state(execution_state)
             .with_status(AgentThreadStatus::Idle)
             .execute_with_deps(&common::deps::from_app(&self.ctx.app_state).db().nats().id())
             .await?;

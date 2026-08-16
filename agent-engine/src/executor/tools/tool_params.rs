@@ -39,4 +39,8 @@ pub(crate) struct ResolvedToolCall {
 
 pub(crate) struct ToolExecutionLoopOutcome {
     pub any_pending: bool,
+    /// True when at least one requested tool was rejected or returned an error.
+    /// A failed batch is not forward progress and must not clear the loop's
+    /// unproductive-turn guard.
+    pub had_failure: bool,
 }

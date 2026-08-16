@@ -121,7 +121,8 @@ impl AgentExecutor {
     ) -> Result<Value, AppError> {
         if !self.can_create_project_task_in_current_mode() {
             return Err(AppError::BadRequest(
-                "create_project_task is available only to the coordinator thread or a user-facing conversation thread".to_string(),
+                "create_project_task is available only to a user-facing conversation thread"
+                    .to_string(),
             ));
         }
 
@@ -189,7 +190,7 @@ impl AgentExecutor {
     ) -> Result<Value, AppError> {
         if !self.can_write_project_task_board_in_current_mode() {
             return Err(AppError::BadRequest(
-                "update_project_task is available only to the coordinator thread, while handling an assignment event, or from a user-facing conversation thread".to_string(),
+                "update_project_task is available only to the coordinator thread or from a user-facing conversation thread".to_string(),
             ));
         }
 
