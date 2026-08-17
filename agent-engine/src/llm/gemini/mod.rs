@@ -127,7 +127,7 @@ impl GeminiClient {
             .prepare_generate_request_body(request_body, cache_request.as_ref())
             .await;
         let request_body = prepared_request.request_body;
-        let cache_plan = prepared_request.cache_plan;
+        let cache_state = prepared_request.cache_state;
         let parsed = self
             .execute_generate_content_request(&url, &request_body)
             .await?;
@@ -159,19 +159,6 @@ impl GeminiClient {
         if let Some(usage) = parsed.usage_metadata.as_ref() {
             self.track_token_usage(usage, &parsed).await;
         }
-
-        let cache_state = if let (Some(cache_request), Some(cache_plan)) =
-            (cache_request.as_ref(), cache_plan.as_ref())
-        {
-            if cache_request.reuse_only {
-                None
-            } else {
-                self.refresh_explicit_cache(cache_request, cache_plan)
-                    .await?
-            }
-        } else {
-            None
-        };
 
         Ok(StructuredContentOutput {
             value: parsed_response,
@@ -217,7 +204,7 @@ impl GeminiClient {
             .prepare_generate_request_body(request_body, cache_request.as_ref())
             .await;
         let request_body = prepared.request_body;
-        let cache_plan = prepared.cache_plan;
+        let cache_state = prepared.cache_state;
 
         let parsed = self
             .execute_generate_content_request(&url, &request_body)
@@ -251,19 +238,6 @@ impl GeminiClient {
             // Empty turn, not an error — let the loop's empty-response guard handle it.
             tracing::warn!(model = %self.model, "Gemini returned no function calls and no text");
         }
-
-        let cache_state = if let (Some(cache_request), Some(cache_plan)) =
-            (cache_request.as_ref(), cache_plan.as_ref())
-        {
-            if cache_request.reuse_only {
-                None
-            } else {
-                self.refresh_explicit_cache(cache_request, cache_plan)
-                    .await?
-            }
-        } else {
-            None
-        };
 
         let finish_reason = parsed
             .candidates
@@ -383,8 +357,8 @@ impl GeminiClient {
         request_body: &str,
     ) -> Result<GeminiResponse, AppError> {
         let mut attempt = 0u32;
-        const MAX_RETRIES: u32 = 15;
-        const MAX_EMPTY_CONTENT_RETRIES: u32 = 4;
+        const MAX_RETRIES: u32 = 4;
+        const MAX_EMPTY_CONTENT_RETRIES: u32 = 2;
         let mut current_body = request_body.to_string();
         let mut safety_retry_used = false;
         let mut empty_retries = 0u32;
@@ -532,7 +506,7 @@ impl GeminiClient {
     // Fixed random delay between retry attempts — uniformly in [2000ms, 4000ms].
     // No exponential backoff, no Retry-After header honoring; the fixed window is
     // the contract. See `execute_generate_content_request` for the matching
-    // `MAX_RETRIES: u32 = 15`.
+    // `MAX_RETRIES: u32 = 4`.
     fn calculate_backoff_delay(_attempt: u32) -> Duration {
         let jitter_ms = 2000 + (rand::random::<f64>() * 2000.0) as u64;
         let final_delay = jitter_ms;

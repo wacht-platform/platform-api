@@ -961,7 +961,8 @@ impl AgentExecutor {
             serde_json::from_value(context_json.clone()).map_err(|e| {
                 AppError::Internal(format!("Failed to deserialize prompt context: {e}"))
             })?;
-        let mut request = self.build_agent_loop_request(&prompt_context, &context_json, None)?;
+        let (mut request, agent_stable_prefix) =
+            self.build_agent_loop_request(&prompt_context, &context_json, None)?;
 
         let available_tools = self.available_tools_for_mode().await;
         let active_board_item = self.active_board_item_prompt_item().await?;
@@ -1007,10 +1008,10 @@ impl AgentExecutor {
         let turn_provider = llm.provider_label().to_string();
         let turn_model = llm.model_name().to_string();
 
-        let history_len = prompt_context.conversation_history_prefix.len();
-        let total_messages = request.messages.len();
-        let pre_history = total_messages.saturating_sub(history_len).min(1);
-        let live_tail_count = total_messages.saturating_sub(pre_history + history_len);
+        // Only the agent-stable user message is shared across threads. Thread
+        // brief + history + live tail stay uncached so one explicit cache can
+        // serve every thread of this agent.
+        let live_tail_count = request.messages.len().saturating_sub(agent_stable_prefix);
         let cache_request = self.build_prompt_cache_request(live_tail_count).await;
         self.run_hooks(
             super::hooks::LifecyclePhase::BeforeLlm,

@@ -154,12 +154,14 @@ pub(crate) struct ExplicitCachePlan {
     pub(crate) prefix_signature: String,
     pub(crate) cached_contents_signature: String,
     pub(crate) cached_content_count: usize,
-    /// Whether to (re)create the cache this turn (cost rule D·M ≥ P) vs reuse it.
+    /// Create a new cachedContents object (prefix missing or changed).
     pub(crate) should_refresh: bool,
+    /// PATCH TTL on the existing cache (same prefix, near expiry).
+    pub(crate) should_renew_ttl: bool,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedGenerateRequest {
     pub(crate) request_body: String,
-    pub(crate) cache_plan: Option<ExplicitCachePlan>,
+    pub(crate) cache_state: Option<models::PromptCacheState>,
 }

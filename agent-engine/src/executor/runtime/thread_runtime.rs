@@ -366,7 +366,7 @@ impl AgentExecutor {
     }
 
     fn prompt_cache_redis_key(&self, cache_key: &str) -> String {
-        format!("agent:prompt_cache:{}:{cache_key}", self.ctx.thread_id)
+        format!("agent:prompt_cache:{cache_key}")
     }
 
     pub(crate) async fn build_prompt_cache_request(
@@ -374,13 +374,10 @@ impl AgentExecutor {
         live_tail_count: usize,
     ) -> Option<crate::llm::PromptCacheRequest> {
         // `AGENT_ENGINE_CACHE_MODE` toggles the prompt caching strategy:
-        //   - "explicit" (default): explicit Gemini `cachedContents` lifecycle
-        //     managed by us (cache.rs + Redis state). Guaranteed reuse, write
-        //     cost on first call, fixed TTL.
-        //   - "implicit": skip our cache plan entirely. Gemini 2.5+ models
-        //     implicitly cache identical prefixes server-side at no write cost.
-        //     We just need to keep the prefix stable (which the prompt builder
-        //     already does after the live_tail_count / stable_context fixes).
+        //   - "explicit" (default): one Gemini `cachedContents` object per
+        //     deployment+agent+model, 1-day TTL, PATCH-renewed before expiry.
+        //     Implicit caching still applies on the live tail for free.
+        //   - "implicit": skip our cache plan entirely.
         //   - "off": disable both. Useful for A/B baseline.
         let mode = std::env::var("AGENT_ENGINE_CACHE_MODE")
             .unwrap_or_else(|_| "explicit".to_string())
@@ -394,8 +391,8 @@ impl AgentExecutor {
             return None;
         }
 
-        let cache_key = self.prompt_cache_key()?;
-        let ttl_secs = Self::prompt_cache_ttl_secs(&cache_key);
+        let cache_key = self.prompt_cache_key();
+        let ttl_secs = Self::prompt_cache_ttl_secs();
 
         let prior_state = self.read_prompt_cache_state(&cache_key).await;
         Some(crate::llm::PromptCacheRequest {
@@ -407,58 +404,21 @@ impl AgentExecutor {
         })
     }
 
-    // Explicit caches bill storage per token-hour. delete-on-supersede caps us at
-    // one live cache per key; TTL is the idle reaper. Tasks stay active turn-by-turn
-    // across events, so keep them warm longer; conversation is bursty with long gaps.
-    fn prompt_cache_ttl_secs(_cache_key: &str) -> i64 {
-        // One live cache per key (delete-on-supersede), so TTL is just the idle
-        // reaper — 20 min across the board.
-        1200
+    fn prompt_cache_ttl_secs() -> i64 {
+        86_400
     }
 
-    fn prompt_cache_key(&self) -> Option<String> {
-        if let Some(event) = self.active_thread_event.as_ref() {
-            if let Some(payload) = event.assignment_execution_payload() {
-                Some(format!("executor_assignment_{}", payload.assignment_id))
-            } else if let Some(board_item_id) = event.board_item_id {
-                Some(format!("coordinator_board_{board_item_id}"))
-            } else {
-                Some("thread_default".to_string())
-            }
-        } else if self.is_conversation_thread {
-            Some("conversation".to_string())
-        } else {
-            None
-        }
+    fn prompt_cache_key(&self) -> String {
+        let model = self.ctx.resolve_model_name(LlmRole::Strong);
+        format!(
+            "d{}_a{}_{model}",
+            self.ctx.agent.deployment_id, self.ctx.agent.id
+        )
     }
 
-    /// End-of-run cleanup. Only reclaim single-use executor-assignment caches
-    /// (their key never recurs, so nothing will reuse them). Coordinator and
-    /// conversation keys recur across events — leave them warm; supersede-delete
-    /// plus the idle TTL keep their cost bounded. Best-effort.
-    pub(crate) async fn cleanup_prompt_cache_on_finish(&self) {
-        let Some(cache_key) = self.prompt_cache_key() else {
-            return;
-        };
-        if !cache_key.starts_with("executor_assignment_") {
-            return;
-        }
-        let Some(state) = self.read_prompt_cache_state(&cache_key).await else {
-            return;
-        };
-        if let Ok(llm) = self.create_strong_llm().await {
-            llm.delete_prompt_cache(&state.cache_name).await;
-        }
-        if let Ok(mut conn) = self
-            .ctx
-            .app_state
-            .redis_client
-            .get_multiplexed_async_connection()
-            .await
-        {
-            let _: Result<(), _> = conn.del(self.prompt_cache_redis_key(&cache_key)).await;
-        }
-    }
+    /// Shared agent caches outlive a single run. Leave them warm; PATCH-renew
+    /// plus the 1-day TTL keep storage bounded. Best-effort no-op.
+    pub(crate) async fn cleanup_prompt_cache_on_finish(&self) {}
 
     async fn read_prompt_cache_state(&self, cache_key: &str) -> Option<PromptCacheState> {
         let mut conn = self
