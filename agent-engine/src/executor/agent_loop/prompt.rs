@@ -514,7 +514,7 @@ impl AgentExecutor {
         prompt_context: &AgentLoopPromptEnvelope,
         prompt_context_value: &serde_json::Value,
         trailing_user_message: Option<&str>,
-    ) -> Result<(SemanticLlmRequest, usize), AppError> {
+    ) -> Result<(SemanticLlmRequest, usize, usize), AppError> {
         let live_context_message =
             prompt_context
                 .live_context_message
@@ -552,6 +552,13 @@ impl AgentExecutor {
                 .map(str::trim)
                 .is_some_and(|value| !value.is_empty()),
         );
+        let thread_stable_prefix = usize::from(
+            thread_stable_context_message
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty()),
+        );
+        let history_len = prompt_context.conversation_history_prefix.len();
         let messages = self.build_agent_loop_messages(
             &prompt_context.conversation_history_prefix,
             agent_stable_context_message.as_deref(),
@@ -561,9 +568,15 @@ impl AgentExecutor {
             &prompt_context.current_request_entry,
             trailing_user_message,
         );
+        // Volatile tail: task-state + live context + current request + trailing.
+        // Incremental mode caches everything before this and recaches the delta.
+        let volatile_tail_count = messages
+            .len()
+            .saturating_sub(agent_stable_prefix + thread_stable_prefix + history_len);
         Ok((
             SemanticLlmRequest::from_config(system_prompt, messages, config),
             agent_stable_prefix,
+            volatile_tail_count,
         ))
     }
 

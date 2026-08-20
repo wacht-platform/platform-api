@@ -9,6 +9,12 @@ use sha2::{Digest, Sha256};
 use super::types::{CachedContentResponse, ExplicitCachePlan, PreparedGenerateRequest};
 use super::{ExplicitCacheRequest, GeminiClient};
 
+struct PreparedLayer {
+    request_body: String,
+    state: Option<models::PromptCacheState>,
+    attachable: bool,
+}
+
 const GEMINI_API_ROOT_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const REQUEST_TIMEOUT_SECS: u64 = 240;
 const EXPLICIT_CACHE_MIN_TOKENS_FLASH: usize = 4_096;
@@ -21,18 +27,60 @@ impl GeminiClient {
     pub(crate) async fn prepare_generate_request_body(
         &self,
         request_body: String,
-        cache_request: Option<&ExplicitCacheRequest>,
+        cache_request: Option<&crate::llm::PromptCacheRequest>,
     ) -> PreparedGenerateRequest {
         let Some(cache_request) = cache_request else {
             return Self::uncached_prepare(request_body);
         };
 
-        let Some(mut plan) = self.build_explicit_cache_plan(&request_body, cache_request) else {
-            return Self::uncached_prepare(request_body);
+        // Warm both Gemini/Redis objects every turn. Attach incremental when
+        // it is reusable or just created; otherwise attach the shared prefix.
+        let incremental = ExplicitCacheRequest::from(&cache_request.incremental);
+        let shared = ExplicitCacheRequest::from(&cache_request.shared);
+
+        let incremental_prepared = self.prepare_single_layer(&request_body, &incremental).await;
+        let shared_prepared = self.prepare_single_layer(&request_body, &shared).await;
+
+        let mut cache_states = Vec::new();
+        if let Some(state) = incremental_prepared.as_ref().and_then(|p| p.state.clone()) {
+            cache_states.push(state);
+        }
+        if let Some(state) = shared_prepared.as_ref().and_then(|p| p.state.clone()) {
+            cache_states.push(state);
+        }
+
+        let attached = incremental_prepared
+            .as_ref()
+            .filter(|prepared| prepared.attachable)
+            .or(shared_prepared.as_ref().filter(|prepared| prepared.attachable));
+
+        let Some(attached) = attached else {
+            return PreparedGenerateRequest {
+                request_body,
+                cache_states,
+                attached_cache_name: None,
+            };
         };
 
+        PreparedGenerateRequest {
+            request_body: attached.request_body.clone(),
+            cache_states,
+            attached_cache_name: attached
+                .state
+                .as_ref()
+                .map(|state| state.cache_name.clone()),
+        }
+    }
+
+    async fn prepare_single_layer(
+        &self,
+        request_body: &str,
+        cache_request: &ExplicitCacheRequest,
+    ) -> Option<PreparedLayer> {
+        let mut plan = self.build_explicit_cache_plan(request_body, cache_request)?;
+
         if cache_request.reuse_only && !self.plan_can_reuse_prior(cache_request, &plan) {
-            return Self::uncached_prepare(request_body);
+            return None;
         }
 
         let cache_state = if cache_request.reuse_only {
@@ -45,9 +93,9 @@ impl GeminiClient {
                         model = %self.model,
                         cache_key = %cache_request.cache_key,
                         error = %error,
-                        "Gemini explicit cache create/renew failed; sending uncached request"
+                        "Gemini explicit cache create/renew failed; leaving this layer unused"
                     );
-                    return Self::uncached_prepare(request_body);
+                    return None;
                 }
             }
         };
@@ -58,18 +106,23 @@ impl GeminiClient {
             }
         }
 
+        let attachable = cache_state
+            .as_ref()
+            .is_some_and(|state| !state.cache_name.is_empty());
         let request_body =
-            serde_json::to_string(&plan.send_request_payload).unwrap_or(request_body);
-        PreparedGenerateRequest {
+            serde_json::to_string(&plan.send_request_payload).unwrap_or_else(|_| request_body.to_string());
+        Some(PreparedLayer {
             request_body,
-            cache_state,
-        }
+            state: cache_state,
+            attachable,
+        })
     }
 
     fn uncached_prepare(request_body: String) -> PreparedGenerateRequest {
         PreparedGenerateRequest {
             request_body,
-            cache_state: None,
+            cache_states: Vec::new(),
+            attached_cache_name: None,
         }
     }
 
@@ -112,13 +165,30 @@ impl GeminiClient {
         let cacheable_contents = contents[..cacheable_content_count].to_vec();
         let live_tail_contents = contents[cacheable_content_count..].to_vec();
 
-        let stable_payload = json!({
-            "systemInstruction": system_instruction.clone(),
-            "tools": tools.clone(),
-            "contents": cacheable_contents.clone(),
-        });
-        let prefix_signature =
-            self.short_hash(serde_json::to_string(&stable_payload).ok()?.as_bytes(), 32);
+        // Shared mode hashes system+tools+contents so any prefix change busts.
+        // Incremental mode hashes only system+tools so history can grow.
+        let prefix_signature = if cache_request.incremental {
+            self.short_hash(
+                serde_json::to_string(&json!({
+                    "systemInstruction": system_instruction.clone(),
+                    "tools": tools.clone(),
+                }))
+                .ok()?
+                .as_bytes(),
+                32,
+            )
+        } else {
+            self.short_hash(
+                serde_json::to_string(&json!({
+                    "systemInstruction": system_instruction.clone(),
+                    "tools": tools.clone(),
+                    "contents": cacheable_contents.clone(),
+                }))
+                .ok()?
+                .as_bytes(),
+                32,
+            )
+        };
         let cached_contents_signature = self.short_hash(
             serde_json::to_string(&cacheable_contents).ok()?.as_bytes(),
             32,
@@ -154,7 +224,19 @@ impl GeminiClient {
         }
 
         let full_cache_payload = Value::Object(full_cache_payload);
-        let estimated_prefix_tokens = Self::estimate_tokens(&full_cache_payload);
+        let estimated_prefix_tokens = cache_request
+            .prior_state
+            .as_ref()
+            .and_then(|state| state.cached_token_count)
+            .filter(|tokens| *tokens > 0)
+            .map(|tokens| tokens as usize)
+            .unwrap_or_else(|| {
+                Self::estimate_tokens(&json!({
+                    "systemInstruction": full_cache_payload.get("systemInstruction"),
+                    "tools": full_cache_payload.get("tools"),
+                    "contents": full_cache_payload.get("contents"),
+                }))
+            });
         if estimated_prefix_tokens < Self::explicit_cache_min_tokens_for_model(&self.model) {
             return None;
         }
@@ -172,9 +254,38 @@ impl GeminiClient {
                 should_renew_ttl: false,
             };
             if self.can_use_cached_prefix(cache_request, prior_state, &probe) {
-                should_refresh = false;
-                should_renew_ttl = prior_state.expire_at
+                let near_expiry = prior_state.expire_at
                     <= Utc::now() + chrono::Duration::seconds(EXPLICIT_CACHE_RENEW_LEAD_SECS);
+                let generate_contents = if cache_request.incremental {
+                    let delta_slice =
+                        cacheable_contents[prior_state.cached_content_count..].to_vec();
+                    let delta_tokens = Self::estimate_tokens(&Value::Array(delta_slice.clone()));
+                    let cached_prefix_tokens = prior_state
+                        .cached_token_count
+                        .filter(|tokens| *tokens > 0)
+                        .map(|tokens| tokens as usize)
+                        .unwrap_or(estimated_prefix_tokens);
+                    let reuse_turns = (prior_state.reuse_turns as usize).saturating_add(1);
+                    // Recache when the unpaid delta has grown worth absorbing
+                    // into a new prefix: D·M ≥ P. Reuse pays only D this turn.
+                    should_refresh = Self::incremental_should_recache(
+                        delta_tokens,
+                        reuse_turns,
+                        cached_prefix_tokens,
+                    );
+                    if should_refresh {
+                        live_tail_contents.clone()
+                    } else {
+                        should_renew_ttl = near_expiry;
+                        let mut reuse_contents = delta_slice;
+                        reuse_contents.extend(live_tail_contents.iter().cloned());
+                        reuse_contents
+                    }
+                } else {
+                    should_refresh = false;
+                    should_renew_ttl = near_expiry;
+                    live_tail_contents.clone()
+                };
 
                 send_request_object.remove("system_instruction");
                 send_request_object.remove("systemInstruction");
@@ -183,8 +294,22 @@ impl GeminiClient {
                     "cachedContent".to_string(),
                     json!(prior_state.cache_name),
                 );
-                send_request_object.insert("contents".to_string(), Value::Array(live_tail_contents));
+                send_request_object
+                    .insert("contents".to_string(), Value::Array(generate_contents));
             }
+        }
+
+        if should_refresh {
+            // New cachedContents already includes the cacheable prefix; generate
+            // only the live tail against it (cachedContent is stamped after create).
+            send_request_object.remove("system_instruction");
+            send_request_object.remove("systemInstruction");
+            send_request_object.remove("tools");
+            send_request_object.remove("cachedContent");
+            send_request_object.insert(
+                "contents".to_string(),
+                Value::Array(live_tail_contents),
+            );
         }
 
         Some(ExplicitCachePlan {
@@ -215,12 +340,46 @@ impl GeminiClient {
         prior_state: &models::PromptCacheState,
         plan: &ExplicitCachePlan,
     ) -> bool {
-        prior_state.cache_key == cache_request.cache_key
-            && prior_state.model_name == self.model
-            && prior_state.expire_at > Utc::now() + chrono::Duration::seconds(5)
-            && prior_state.prefix_signature == plan.prefix_signature
-            && prior_state.cached_contents_signature == plan.cached_contents_signature
-            && prior_state.cached_content_count == plan.cached_content_count
+        if prior_state.cache_key != cache_request.cache_key
+            || prior_state.model_name != self.model
+            || prior_state.expire_at <= Utc::now() + chrono::Duration::seconds(5)
+            || prior_state.prefix_signature != plan.prefix_signature
+        {
+            return false;
+        }
+
+        if !cache_request.incremental {
+            return prior_state.cached_contents_signature == plan.cached_contents_signature
+                && prior_state.cached_content_count == plan.cached_content_count;
+        }
+
+        if plan.cached_content_count < prior_state.cached_content_count {
+            return false;
+        }
+        if plan.cached_content_count == prior_state.cached_content_count
+            && cache_request.live_tail_count == 0
+        {
+            return false;
+        }
+
+        let Some(contents) = plan
+            .full_cache_payload
+            .get("contents")
+            .and_then(|value| value.as_array())
+        else {
+            return prior_state.cached_content_count == 0;
+        };
+        if contents.len() < prior_state.cached_content_count {
+            return false;
+        }
+        let cached_prefix = contents[..prior_state.cached_content_count].to_vec();
+        let Some(prefix_hash) = serde_json::to_string(&cached_prefix)
+            .ok()
+            .map(|serialized| self.short_hash(serialized.as_bytes(), 32))
+        else {
+            return false;
+        };
+        prefix_hash == prior_state.cached_contents_signature
     }
 
     async fn ensure_explicit_cache(
@@ -310,7 +469,7 @@ impl GeminiClient {
             .map(|value: DateTime<chrono::FixedOffset>| value.with_timezone(&Utc))
             .unwrap_or_else(|| Utc::now() + chrono::Duration::seconds(cache_request.ttl_secs));
 
-        let handle = models::PromptCacheState {
+        let mut handle = models::PromptCacheState {
             cache_key: cache_request.cache_key.clone(),
             model_name: self.model.clone(),
             cache_name: parsed.name.clone(),
@@ -319,7 +478,14 @@ impl GeminiClient {
             cached_content_count: plan.cached_content_count,
             expire_at,
             reuse_turns: 0,
+            cached_token_count: None,
         };
+        handle.record_provider_cached_tokens(
+            parsed
+                .usage_metadata
+                .as_ref()
+                .and_then(|usage| usage.total_token_count.or(usage.cached_content_token_count)),
+        );
 
         if let Some(prior) = cache_request.prior_state.as_ref() {
             if prior.cache_name != handle.cache_name {
@@ -407,6 +573,14 @@ impl GeminiClient {
         } else {
             EXPLICIT_CACHE_MIN_TOKENS_PRO
         }
+    }
+
+    fn incremental_should_recache(
+        delta_tokens: usize,
+        reuse_turns: usize,
+        cached_prefix_tokens: usize,
+    ) -> bool {
+        delta_tokens.saturating_mul(reuse_turns) >= cached_prefix_tokens
     }
 
     fn estimate_tokens(value: &Value) -> usize {

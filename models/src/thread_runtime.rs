@@ -92,14 +92,24 @@ pub struct PromptCacheState {
     #[serde(default)]
     pub cached_content_count: usize,
     pub expire_at: DateTime<Utc>,
-    /// Turns this cache has served since creation (M in the re-checkpoint rule).
+    /// Turns this cache has served since creation (M in the incremental
+    /// `D·M ≥ P` recache rule). Unused in shared instruction-cache mode.
     #[serde(default)]
     pub reuse_turns: u32,
+    /// Provider-reported cached prefix tokens. Prefer this over local estimates.
+    #[serde(default)]
+    pub cached_token_count: Option<u32>,
 }
 
 impl PromptCacheState {
     pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
         self.expire_at <= now + chrono::Duration::seconds(5)
+    }
+
+    pub fn record_provider_cached_tokens(&mut self, tokens: Option<u32>) {
+        if let Some(tokens) = tokens.filter(|value| *value > 0) {
+            self.cached_token_count = Some(tokens);
+        }
     }
 }
 

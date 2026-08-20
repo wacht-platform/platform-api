@@ -101,7 +101,7 @@ pub struct UsageMetadata {
 pub struct StructuredContentOutput<T> {
     pub value: T,
     pub usage_metadata: Option<UsageMetadata>,
-    pub cache_state: Option<models::PromptCacheState>,
+    pub cache_states: Vec<models::PromptCacheState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +112,10 @@ pub struct ExplicitCacheRequest {
     pub prior_state: Option<models::PromptCacheState>,
     #[serde(default)]
     pub reuse_only: bool,
+    /// Grow the cached prefix and recache when `D·M ≥ P`. Shared mode
+    /// ignores this and recreates only on instruction-signature change.
+    #[serde(default)]
+    pub incremental: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,5 +167,6 @@ pub(crate) struct ExplicitCachePlan {
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedGenerateRequest {
     pub(crate) request_body: String,
-    pub(crate) cache_state: Option<models::PromptCacheState>,
+    pub(crate) cache_states: Vec<models::PromptCacheState>,
+    pub(crate) attached_cache_name: Option<String>,
 }

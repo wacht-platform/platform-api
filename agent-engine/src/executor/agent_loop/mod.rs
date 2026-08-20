@@ -961,7 +961,7 @@ impl AgentExecutor {
             serde_json::from_value(context_json.clone()).map_err(|e| {
                 AppError::Internal(format!("Failed to deserialize prompt context: {e}"))
             })?;
-        let (mut request, agent_stable_prefix) =
+        let (mut request, agent_stable_prefix, volatile_tail_count) =
             self.build_agent_loop_request(&prompt_context, &context_json, None)?;
 
         let available_tools = self.available_tools_for_mode().await;
@@ -1008,11 +1008,16 @@ impl AgentExecutor {
         let turn_provider = llm.provider_label().to_string();
         let turn_model = llm.model_name().to_string();
 
-        // Only the agent-stable user message is shared across threads. Thread
-        // brief + history + live tail stay uncached so one explicit cache can
-        // serve every thread of this agent.
-        let live_tail_count = request.messages.len().saturating_sub(agent_stable_prefix);
-        let cache_request = self.build_prompt_cache_request(live_tail_count).await;
+        // Shared layer caches the agent-stable prefix so one `cachedContents`
+        // serves every thread. Incremental layer caches thread brief + history
+        // and recaches when D·M ≥ P. Both stay warm every turn.
+        let shared_live_tail_count = request
+            .messages
+            .len()
+            .saturating_sub(agent_stable_prefix);
+        let cache_request = self
+            .build_prompt_cache_request(shared_live_tail_count, volatile_tail_count)
+            .await;
         self.run_hooks(
             super::hooks::LifecyclePhase::BeforeLlm,
             serde_json::Value::Null,
@@ -1049,7 +1054,7 @@ impl AgentExecutor {
         }
 
         self.record_llm_usage_for_compaction(output.usage_metadata.as_ref());
-        if let Some(cache_state) = output.cache_state.as_ref() {
+        for cache_state in &output.cache_states {
             self.write_prompt_cache_state(cache_state).await;
         }
 

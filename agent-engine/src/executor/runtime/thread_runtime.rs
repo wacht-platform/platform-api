@@ -371,36 +371,40 @@ impl AgentExecutor {
 
     pub(crate) async fn build_prompt_cache_request(
         &self,
-        live_tail_count: usize,
+        shared_live_tail_count: usize,
+        incremental_live_tail_count: usize,
     ) -> Option<crate::llm::PromptCacheRequest> {
-        // `AGENT_ENGINE_CACHE_MODE` toggles the prompt caching strategy:
-        //   - "explicit" (default): one Gemini `cachedContents` object per
-        //     deployment+agent+model, 1-day TTL, PATCH-renewed before expiry.
-        //     Implicit caching still applies on the live tail for free.
-        //   - "implicit": skip our cache plan entirely.
-        //   - "off": disable both. Useful for A/B baseline.
-        let mode = std::env::var("AGENT_ENGINE_CACHE_MODE")
-            .unwrap_or_else(|_| "explicit".to_string())
-            .to_ascii_lowercase();
-        if mode == "implicit" || mode == "off" {
-            return None;
-        }
-
+        // Both layers are always active:
+        //   - shared: one Gemini `cachedContents` per deployment+agent+model
+        //     (instruction prefix). Recreate on signature change. PATCH-renew.
+        //   - incremental: per-thread growing cache. Recache when D·M ≥ P.
         // Per-profile opt-out: the strong-role profile drives this call's LLM.
         if self.ctx.prompt_caching_disabled(LlmRole::Strong) {
             return None;
         }
 
-        let cache_key = self.prompt_cache_key();
         let ttl_secs = Self::prompt_cache_ttl_secs();
-
-        let prior_state = self.read_prompt_cache_state(&cache_key).await;
+        let shared_key = self.shared_prompt_cache_key();
+        let incremental_key = self.incremental_prompt_cache_key();
+        let shared_prior = self.read_prompt_cache_state(&shared_key).await;
+        let incremental_prior = self.read_prompt_cache_state(&incremental_key).await;
         Some(crate::llm::PromptCacheRequest {
-            cache_key,
-            ttl_secs,
-            live_tail_count,
-            prior_state,
-            reuse_only: false,
+            shared: crate::llm::PromptCacheLayer {
+                cache_key: shared_key,
+                ttl_secs,
+                live_tail_count: shared_live_tail_count,
+                prior_state: shared_prior,
+                reuse_only: false,
+                incremental: false,
+            },
+            incremental: crate::llm::PromptCacheLayer {
+                cache_key: incremental_key,
+                ttl_secs,
+                live_tail_count: incremental_live_tail_count,
+                prior_state: incremental_prior,
+                reuse_only: false,
+                incremental: true,
+            },
         })
     }
 
@@ -408,7 +412,7 @@ impl AgentExecutor {
         86_400
     }
 
-    fn prompt_cache_key(&self) -> String {
+    fn shared_prompt_cache_key(&self) -> String {
         let model = self.ctx.resolve_model_name(LlmRole::Strong);
         format!(
             "d{}_a{}_{model}",
@@ -416,8 +420,17 @@ impl AgentExecutor {
         )
     }
 
-    /// Shared agent caches outlive a single run. Leave them warm; PATCH-renew
-    /// plus the 1-day TTL keep storage bounded. Best-effort no-op.
+    fn incremental_prompt_cache_key(&self) -> String {
+        let model = self.ctx.resolve_model_name(LlmRole::Strong);
+        format!(
+            "d{}_a{}_t{}_{model}",
+            self.ctx.agent.deployment_id, self.ctx.agent.id, self.ctx.thread_id
+        )
+    }
+
+    /// Shared instruction caches outlive a single run. Incremental caches are
+    /// per-thread and also left warm so pause/resume still hits; both expire
+    /// via the 1-day TTL. Best-effort no-op.
     pub(crate) async fn cleanup_prompt_cache_on_finish(&self) {}
 
     async fn read_prompt_cache_state(&self, cache_key: &str) -> Option<PromptCacheState> {

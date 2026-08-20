@@ -117,7 +117,7 @@ impl GeminiClient {
     pub async fn generate_structured_content_with_usage_and_cache<T>(
         &self,
         request_body: String,
-        cache_request: Option<ExplicitCacheRequest>,
+        cache_request: Option<PromptCacheRequest>,
     ) -> Result<StructuredContentOutput<T>, AppError>
     where
         T: for<'de> Deserialize<'de> + Serialize,
@@ -127,7 +127,8 @@ impl GeminiClient {
             .prepare_generate_request_body(request_body, cache_request.as_ref())
             .await;
         let request_body = prepared_request.request_body;
-        let cache_state = prepared_request.cache_state;
+        let cache_states = prepared_request.cache_states;
+        let attached_cache_name = prepared_request.attached_cache_name;
         let parsed = self
             .execute_generate_content_request(&url, &request_body)
             .await?;
@@ -162,8 +163,12 @@ impl GeminiClient {
 
         Ok(StructuredContentOutput {
             value: parsed_response,
-            usage_metadata: parsed.usage_metadata,
-            cache_state,
+            usage_metadata: parsed.usage_metadata.clone(),
+            cache_states: crate::llm::stamp_attached_cache_tokens(
+                cache_states,
+                attached_cache_name.as_deref(),
+                parsed.usage_metadata.as_ref(),
+            ),
         })
     }
 
@@ -199,12 +204,12 @@ impl GeminiClient {
         let url = format!("{}/{}:generateContent", GEMINI_API_BASE_URL, self.model);
         let request_body = self.build_tool_call_request_body(prompt, tools)?;
 
-        let cache_request: Option<ExplicitCacheRequest> = cache.map(Into::into);
         let prepared = self
-            .prepare_generate_request_body(request_body, cache_request.as_ref())
+            .prepare_generate_request_body(request_body, cache.as_ref())
             .await;
         let request_body = prepared.request_body;
-        let cache_state = prepared.cache_state;
+        let cache_states = prepared.cache_states;
+        let attached_cache_name = prepared.attached_cache_name;
 
         let parsed = self
             .execute_generate_content_request(&url, &request_body)
@@ -247,8 +252,12 @@ impl GeminiClient {
         Ok(ToolCallGenerationOutput {
             calls,
             content_text,
-            usage_metadata: parsed.usage_metadata,
-            cache_state,
+            usage_metadata: parsed.usage_metadata.clone(),
+            cache_states: crate::llm::stamp_attached_cache_tokens(
+                cache_states,
+                attached_cache_name.as_deref(),
+                parsed.usage_metadata.as_ref(),
+            ),
             finish_reason,
         })
     }
@@ -716,12 +725,12 @@ impl crate::llm::LlmProvider for GeminiClient {
     ) -> Result<crate::llm::StructuredGenerationOutput<Value>, AppError> {
         let body = serialize_gemini_structured_request(&prompt, &self.model)?;
         let output = self
-            .generate_structured_content_with_usage_and_cache::<Value>(body, cache.map(Into::into))
+            .generate_structured_content_with_usage_and_cache::<Value>(body, cache)
             .await?;
         Ok(crate::llm::StructuredGenerationOutput {
             value: output.value,
             usage_metadata: output.usage_metadata,
-            cache_state: output.cache_state,
+            cache_states: output.cache_states,
         })
     }
 
