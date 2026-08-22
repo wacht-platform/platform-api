@@ -33,42 +33,31 @@ impl GeminiClient {
             return Self::uncached_prepare(request_body);
         };
 
-        // Warm both Gemini/Redis objects every turn. Attach incremental when
-        // it is reusable or just created; otherwise attach the shared prefix.
         let incremental = ExplicitCacheRequest::from(&cache_request.incremental);
+        if let Some(prepared) = self.prepare_single_layer(&request_body, &incremental).await {
+            if prepared.attachable {
+                return Self::attached_prepare(prepared);
+            }
+        }
+
         let shared = ExplicitCacheRequest::from(&cache_request.shared);
-
-        let incremental_prepared = self.prepare_single_layer(&request_body, &incremental).await;
-        let shared_prepared = self.prepare_single_layer(&request_body, &shared).await;
-
-        let mut cache_states = Vec::new();
-        if let Some(state) = incremental_prepared.as_ref().and_then(|p| p.state.clone()) {
-            cache_states.push(state);
-        }
-        if let Some(state) = shared_prepared.as_ref().and_then(|p| p.state.clone()) {
-            cache_states.push(state);
+        if let Some(prepared) = self.prepare_single_layer(&request_body, &shared).await {
+            if prepared.attachable {
+                return Self::attached_prepare(prepared);
+            }
         }
 
-        let attached = incremental_prepared
-            .as_ref()
-            .filter(|prepared| prepared.attachable)
-            .or(shared_prepared.as_ref().filter(|prepared| prepared.attachable));
+        Self::uncached_prepare(request_body)
+    }
 
-        let Some(attached) = attached else {
-            return PreparedGenerateRequest {
-                request_body,
-                cache_states,
-                attached_cache_name: None,
-            };
-        };
-
+    fn attached_prepare(prepared: PreparedLayer) -> PreparedGenerateRequest {
         PreparedGenerateRequest {
-            request_body: attached.request_body.clone(),
-            cache_states,
-            attached_cache_name: attached
+            request_body: prepared.request_body,
+            attached_cache_name: prepared
                 .state
                 .as_ref()
                 .map(|state| state.cache_name.clone()),
+            cache_states: prepared.state.into_iter().collect(),
         }
     }
 
@@ -79,24 +68,16 @@ impl GeminiClient {
     ) -> Option<PreparedLayer> {
         let mut plan = self.build_explicit_cache_plan(request_body, cache_request)?;
 
-        if cache_request.reuse_only && !self.plan_can_reuse_prior(cache_request, &plan) {
-            return None;
-        }
-
-        let cache_state = if cache_request.reuse_only {
-            cache_request.prior_state.clone()
-        } else {
-            match self.ensure_explicit_cache(cache_request, &plan).await {
-                Ok(state) => state,
-                Err(error) => {
-                    tracing::warn!(
-                        model = %self.model,
-                        cache_key = %cache_request.cache_key,
-                        error = %error,
-                        "Gemini explicit cache create/renew failed; leaving this layer unused"
-                    );
-                    return None;
-                }
+        let cache_state = match self.ensure_explicit_cache(cache_request, &plan).await {
+            Ok(state) => state,
+            Err(error) => {
+                tracing::warn!(
+                    model = %self.model,
+                    cache_key = %cache_request.cache_key,
+                    error = %error,
+                    "Gemini explicit cache create/renew failed; leaving this layer unused"
+                );
+                return None;
             }
         };
 
@@ -165,8 +146,6 @@ impl GeminiClient {
         let cacheable_contents = contents[..cacheable_content_count].to_vec();
         let live_tail_contents = contents[cacheable_content_count..].to_vec();
 
-        // Shared mode hashes system+tools+contents so any prefix change busts.
-        // Incremental mode hashes only system+tools so history can grow.
         let prefix_signature = if cache_request.incremental {
             self.short_hash(
                 serde_json::to_string(&json!({
@@ -244,16 +223,14 @@ impl GeminiClient {
         let mut should_refresh = true;
         let mut should_renew_ttl = false;
         if let Some(prior_state) = cache_request.prior_state.as_ref() {
-            let probe = ExplicitCachePlan {
-                full_cache_payload: full_cache_payload.clone(),
-                send_request_payload: Value::Null,
-                prefix_signature: prefix_signature.clone(),
-                cached_contents_signature: cached_contents_signature.clone(),
-                cached_content_count: cacheable_contents.len(),
-                should_refresh: true,
-                should_renew_ttl: false,
-            };
-            if self.can_use_cached_prefix(cache_request, prior_state, &probe) {
+            if self.can_use_cached_prefix(
+                cache_request,
+                prior_state,
+                &prefix_signature,
+                &cached_contents_signature,
+                cacheable_contents.len(),
+                &full_cache_payload,
+            ) {
                 let near_expiry = prior_state.expire_at
                     <= Utc::now() + chrono::Duration::seconds(EXPLICIT_CACHE_RENEW_LEAD_SECS);
                 let generate_contents = if cache_request.incremental {
@@ -266,8 +243,6 @@ impl GeminiClient {
                         .map(|tokens| tokens as usize)
                         .unwrap_or(estimated_prefix_tokens);
                     let reuse_turns = (prior_state.reuse_turns as usize).saturating_add(1);
-                    // Recache when the unpaid delta has grown worth absorbing
-                    // into a new prefix: D·M ≥ P. Reuse pays only D this turn.
                     should_refresh = Self::incremental_should_recache(
                         delta_tokens,
                         reuse_turns,
@@ -300,8 +275,6 @@ impl GeminiClient {
         }
 
         if should_refresh {
-            // New cachedContents already includes the cacheable prefix; generate
-            // only the live tail against it (cachedContent is stamped after create).
             send_request_object.remove("system_instruction");
             send_request_object.remove("systemInstruction");
             send_request_object.remove("tools");
@@ -323,47 +296,38 @@ impl GeminiClient {
         })
     }
 
-    fn plan_can_reuse_prior(
-        &self,
-        cache_request: &ExplicitCacheRequest,
-        plan: &ExplicitCachePlan,
-    ) -> bool {
-        cache_request
-            .prior_state
-            .as_ref()
-            .is_some_and(|prior| self.can_use_cached_prefix(cache_request, prior, plan))
-    }
-
     fn can_use_cached_prefix(
         &self,
         cache_request: &ExplicitCacheRequest,
         prior_state: &models::PromptCacheState,
-        plan: &ExplicitCachePlan,
+        prefix_signature: &str,
+        cached_contents_signature: &str,
+        cached_content_count: usize,
+        full_cache_payload: &Value,
     ) -> bool {
         if prior_state.cache_key != cache_request.cache_key
             || prior_state.model_name != self.model
             || prior_state.expire_at <= Utc::now() + chrono::Duration::seconds(5)
-            || prior_state.prefix_signature != plan.prefix_signature
+            || prior_state.prefix_signature != prefix_signature
         {
             return false;
         }
 
         if !cache_request.incremental {
-            return prior_state.cached_contents_signature == plan.cached_contents_signature
-                && prior_state.cached_content_count == plan.cached_content_count;
+            return prior_state.cached_contents_signature == cached_contents_signature
+                && prior_state.cached_content_count == cached_content_count;
         }
 
-        if plan.cached_content_count < prior_state.cached_content_count {
+        if cached_content_count < prior_state.cached_content_count {
             return false;
         }
-        if plan.cached_content_count == prior_state.cached_content_count
+        if cached_content_count == prior_state.cached_content_count
             && cache_request.live_tail_count == 0
         {
             return false;
         }
 
-        let Some(contents) = plan
-            .full_cache_payload
+        let Some(contents) = full_cache_payload
             .get("contents")
             .and_then(|value| value.as_array())
         else {

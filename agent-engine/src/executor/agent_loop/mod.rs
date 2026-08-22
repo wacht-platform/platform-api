@@ -1008,9 +1008,6 @@ impl AgentExecutor {
         let turn_provider = llm.provider_label().to_string();
         let turn_model = llm.model_name().to_string();
 
-        // Shared layer caches the agent-stable prefix so one `cachedContents`
-        // serves every thread. Incremental layer caches thread brief + history
-        // and recaches when D·M ≥ P. Both stay warm every turn.
         let shared_live_tail_count = request
             .messages
             .len()

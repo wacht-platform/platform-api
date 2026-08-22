@@ -92,11 +92,8 @@ pub struct PromptCacheState {
     #[serde(default)]
     pub cached_content_count: usize,
     pub expire_at: DateTime<Utc>,
-    /// Turns this cache has served since creation (M in the incremental
-    /// `D·M ≥ P` recache rule). Unused in shared instruction-cache mode.
     #[serde(default)]
     pub reuse_turns: u32,
-    /// Provider-reported cached prefix tokens. Prefer this over local estimates.
     #[serde(default)]
     pub cached_token_count: Option<u32>,
 }

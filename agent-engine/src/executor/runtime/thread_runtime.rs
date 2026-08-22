@@ -374,11 +374,6 @@ impl AgentExecutor {
         shared_live_tail_count: usize,
         incremental_live_tail_count: usize,
     ) -> Option<crate::llm::PromptCacheRequest> {
-        // Both layers are always active:
-        //   - shared: one Gemini `cachedContents` per deployment+agent+model
-        //     (instruction prefix). Recreate on signature change. PATCH-renew.
-        //   - incremental: per-thread growing cache. Recache when D·M ≥ P.
-        // Per-profile opt-out: the strong-role profile drives this call's LLM.
         if self.ctx.prompt_caching_disabled(LlmRole::Strong) {
             return None;
         }
@@ -394,7 +389,6 @@ impl AgentExecutor {
                 ttl_secs,
                 live_tail_count: shared_live_tail_count,
                 prior_state: shared_prior,
-                reuse_only: false,
                 incremental: false,
             },
             incremental: crate::llm::PromptCacheLayer {
@@ -402,7 +396,6 @@ impl AgentExecutor {
                 ttl_secs,
                 live_tail_count: incremental_live_tail_count,
                 prior_state: incremental_prior,
-                reuse_only: false,
                 incremental: true,
             },
         })

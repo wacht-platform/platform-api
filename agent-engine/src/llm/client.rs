@@ -15,22 +15,15 @@ pub enum LlmRole {
     Weak,
 }
 
-/// One explicit-cache object: either the shared deployment prefix or the
-/// per-thread incremental prefix.
 #[derive(Debug, Clone)]
 pub struct PromptCacheLayer {
     pub cache_key: String,
     pub ttl_secs: i64,
     pub live_tail_count: usize,
     pub prior_state: Option<PromptCacheState>,
-    pub reuse_only: bool,
-    /// Grow this prefix and recache when `D·M ≥ P`. Shared layers ignore this.
     pub incremental: bool,
 }
 
-/// Both layers are always active. Gemini can attach only one `cachedContent`
-/// per generate: incremental if usable, otherwise the shared instruction cache.
-/// Both Gemini/Redis objects stay warm either way.
 #[derive(Debug, Clone)]
 pub struct PromptCacheRequest {
     pub shared: PromptCacheLayer,
@@ -370,7 +363,6 @@ impl From<&PromptCacheLayer> for ExplicitCacheRequest {
             ttl_secs: layer.ttl_secs,
             live_tail_count: layer.live_tail_count,
             prior_state: layer.prior_state.clone(),
-            reuse_only: layer.reuse_only,
             incremental: layer.incremental,
         }
     }

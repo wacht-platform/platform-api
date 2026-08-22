@@ -111,10 +111,6 @@ pub struct ExplicitCacheRequest {
     pub live_tail_count: usize,
     pub prior_state: Option<models::PromptCacheState>,
     #[serde(default)]
-    pub reuse_only: bool,
-    /// Grow the cached prefix and recache when `D·M ≥ P`. Shared mode
-    /// ignores this and recreates only on instruction-signature change.
-    #[serde(default)]
     pub incremental: bool,
 }
 

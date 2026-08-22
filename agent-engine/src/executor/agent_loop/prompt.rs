@@ -568,8 +568,6 @@ impl AgentExecutor {
             &prompt_context.current_request_entry,
             trailing_user_message,
         );
-        // Volatile tail: task-state + live context + current request + trailing.
-        // Incremental mode caches everything before this and recaches the delta.
         let volatile_tail_count = messages
             .len()
             .saturating_sub(agent_stable_prefix + thread_stable_prefix + history_len);
